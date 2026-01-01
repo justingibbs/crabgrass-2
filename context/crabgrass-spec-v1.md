@@ -1,8 +1,8 @@
 # Crabgrass: Product Specification
 
-**Version:** 0.1.0-draft  
-**Date:** 2025-12-31  
-**Status:** Initial Specification
+**Version:** 0.2.0
+**Date:** 2025-12-31
+**Status:** MVP Specification
 
 ---
 
@@ -112,29 +112,29 @@ Additional Markdown files created by the user or agent to support the idea:
 │                        IDEA LIFECYCLE                           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐ │
-│   │  Draft   │───▶│  Active  │───▶│ Connected│───▶│Innovation│ │
-│   │          │    │          │    │          │    │          │ │
-│   │ 0-1 files│    │ 2-3 files│    │ 4 files  │    │ Executed │ │
-│   │ complete │    │ complete │    │ + links  │    │          │ │
-│   └──────────┘    └──────────┘    └──────────┘    └──────────┘ │
-│        │                │               │               │       │
-│        ▼                ▼               ▼               ▼       │
-│   Agent nudges    Agent coaches   Agent connects  Agent tracks │
-│   to start        for quality     across org      outcomes     │
+│        ┌──────────┐         ┌──────────┐         ┌──────────┐  │
+│        │  Draft   │────────▶│  Active  │────────▶│ Archived │  │
+│        │          │         │          │         │          │  │
+│        │ 0-3 files│         │ 4 files  │         │          │  │
+│        │ complete │         │ complete │         │          │  │
+│        └──────────┘         └──────────┘         └──────────┘  │
+│             │                    │                              │
+│             ▼                    ▼                              │
+│        Agent coaches        Coherence                           │
+│        per kernel file      agent checks                        │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.3 Organizational Graph
+### 2.3 Objectives
 
-Ideas exist in a graph of relationships:
+Ideas can be linked to organizational objectives:
 
-- **Similar Challenge**: Ideas addressing related problems
-- **Complementary Approach**: Ideas that could combine
-- **Contradictory Assumptions**: Ideas with conflicting premises
-- **Same Strategic Vector**: Ideas aligned to same objective
-- **Shared Collaborators**: Ideas with overlapping teams
+- Ideas can optionally be linked to one objective (can be attached later)
+- Objectives are flat (no hierarchy for MVP)
+- Only org admins can create/edit objectives
+- All org members can view objectives and link ideas to them
+- CoherenceAgent can suggest objectives based on idea content
 
 ---
 
@@ -142,7 +142,7 @@ Ideas exist in a graph of relationships:
 
 ### 3.1 Design Philosophy: Concepts and Synchronizations
 
-Crabgrass follows the Concepts and Synchronizations model (Jackson, MIT 2025) for both backend and frontend:
+Crabgrass follows the Concepts and Synchronizations model (Jackson, MIT 2025) for both backend and frontend. See [concepts-and-synchronizations.md](./concepts-and-synchronizations.md) for the complete concept and synchronization definitions.
 
 **Concepts** are independent, self-contained units of functionality with:
 - Clear purpose
@@ -152,142 +152,25 @@ Crabgrass follows the Concepts and Synchronizations model (Jackson, MIT 2025) fo
 
 **Synchronizations** coordinate concepts without coupling them.
 
-### 3.2 Backend Concepts
+### 3.2 Concept Summary
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                       BACKEND CONCEPTS                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │    Idea     │  │    File     │  │   Version   │             │
-│  │   Concept   │  │   Concept   │  │   Concept   │             │
-│  ├─────────────┤  ├─────────────┤  ├─────────────┤             │
-│  │ create()    │  │ create()    │  │ commit()    │             │
-│  │ archive()   │  │ read()      │  │ history()   │             │
-│  │ getStatus() │  │ update()    │  │ branch()    │             │
-│  │ listAll()   │  │ delete()    │  │ merge()     │             │
-│  └─────────────┘  └─────────────┘  └─────────────┘             │
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │   Agent     │  │   Search    │  │    Graph    │             │
-│  │   Concept   │  │   Concept   │  │   Concept   │             │
-│  ├─────────────┤  ├─────────────┤  ├─────────────┤             │
-│  │ analyze()   │  │ similar()   │  │ connect()   │             │
-│  │ suggest()   │  │ query()     │  │ traverse()  │             │
-│  │ notify()    │  │ embed()     │  │ recommend() │             │
-│  │ act()       │  │ reindex()   │  │ visualize() │             │
-│  └─────────────┘  └─────────────┘  └─────────────┘             │
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐                              │
-│  │    User     │  │   Collab    │                              │
-│  │   Concept   │  │   Concept   │                              │
-│  ├─────────────┤  ├─────────────┤                              │
-│  │ authenticate│  │ invite()    │                              │
-│  │ preferences │  │ share()     │                              │
-│  │ activity()  │  │ comment()   │                              │
-│  └─────────────┘  └─────────────┘                              │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+**Backend Concepts (10):**
+- Idea, Objective, KernelFile, ContextFile
+- Version (JJ), Embedding
+- User, Organization, Collab, Session
 
-### 3.3 Frontend Concepts
+**Frontend Concepts (8):**
+- IdeaWorkspace, ObjectiveWorkspace
+- Canvas, Chat, FileList
+- KernelStatus, Toast, IdeaList
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      FRONTEND CONCEPTS                          │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │   Canvas    │  │    Chat     │  │  FileTree   │             │
-│  │   Concept   │  │   Concept   │  │   Concept   │             │
-│  ├─────────────┤  ├─────────────┤  ├─────────────┤             │
-│  │ render()    │  │ send()      │  │ list()      │             │
-│  │ edit()      │  │ receive()   │  │ select()    │             │
-│  │ save()      │  │ stream()    │  │ organize()  │             │
-│  │ history()   │  │ clear()     │  │ filter()    │             │
-│  └─────────────┘  └─────────────┘  └─────────────┘             │
-│                                                                 │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │   Kernel    │  │ Connection  │  │   Toast     │             │
-│  │   Status    │  │   Panel     │  │   Concept   │             │
-│  ├─────────────┤  ├─────────────┤  ├─────────────┤             │
-│  │ progress()  │  │ show()      │  │ notify()    │             │
-│  │ navigate()  │  │ preview()   │  │ action()    │             │
-│  │ validate()  │  │ link()      │  │ dismiss()   │             │
-│  └─────────────┘  └─────────────┘  └─────────────┘             │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+**Agents (7):**
+- SummaryAgent, ChallengeAgent, ApproachAgent, StepsAgent
+- CoherenceAgent, ContextAgent, ObjectiveAgent
 
-### 3.4 Key Synchronizations
+### 3.3 System Architecture Diagram
 
-```python
-# Example: File saved triggers re-indexing and agent analysis
-sync FileUpdated:
-    when File.update(idea_id, file_type, content):
-        if file_type in KERNEL_FILES:
-            Search.embed(idea_id, file_type, content)
-            Graph.connect(idea_id)
-            Agent.analyze(idea_id)
-
-# Example: Agent suggestion triggers notification
-sync AgentSuggestion:
-    when Agent.suggest(idea_id, suggestion):
-        Toast.notify(idea_id, suggestion)
-        if suggestion.involves_other_user:
-            Collab.notify(suggestion.other_user_id)
-
-# Example: Similar ideas found triggers connection panel
-sync SimilarityFound:
-    when Search.similar(idea_id) returns matches:
-        if matches.score > THRESHOLD:
-            ConnectionPanel.show(idea_id, matches)
-            Agent.notify(idea_id, "found_similar", matches)
-```
-
-### 3.5 System Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                                 CLIENT                                       │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                     Vanilla JS + AG-UI Protocol                      │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐            │   │
-│  │  │  Canvas  │  │   Chat   │  │ FileTree │  │  Kernel  │            │   │
-│  │  │          │  │          │  │          │  │  Status  │            │   │
-│  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘            │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│                                    │ SSE + REST                             │
-│                                    ▼                                        │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                 SERVER                                       │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │                     FastAPI + Google ADK                             │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐            │   │
-│  │  │   Idea   │  │   File   │  │  Agent   │  │  Search  │            │   │
-│  │  │ Concept  │  │ Concept  │  │ Concept  │  │ Concept  │            │   │
-│  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘            │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                    │                                        │
-│                 ┌──────────────────┼──────────────────┐                    │
-│                 ▼                  ▼                  ▼                    │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐           │
-│  │     DuckDB      │  │       JJ        │  │     Gemini      │           │
-│  │  ┌───────────┐  │  │  (Version Ctrl) │  │   (LLM + Emb)   │           │
-│  │  │  Tables   │  │  │                 │  │                 │           │
-│  │  ├───────────┤  │  │  - Commits      │  │  - Analysis     │           │
-│  │  │  VSS Ext  │  │  │  - Branches     │  │  - Suggestions  │           │
-│  │  │  (Vector) │  │  │  - Operations   │  │  - Embeddings   │           │
-│  │  ├───────────┤  │  │                 │  │                 │           │
-│  │  │  DuckPGQ  │  │  │                 │  │                 │           │
-│  │  │  (Graph)  │  │  │                 │  │                 │           │
-│  │  └───────────┘  │  │                 │  │                 │           │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘           │
-│                                                                            │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+See [tech-stack.md](./tech-stack.md) for the complete system architecture diagram.
 
 ---
 
@@ -314,13 +197,27 @@ CREATE TABLE users (
     preferences JSON
 );
 
+-- Objectives (flat, no hierarchy)
+CREATE TABLE objectives (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    org_id UUID REFERENCES organizations(id),
+    title VARCHAR NOT NULL,
+    description TEXT,
+    owner_id UUID REFERENCES users(id),
+    timeframe VARCHAR, -- 'Q1 2025', 'FY25', 'H1 2025', etc.
+    status VARCHAR DEFAULT 'active', -- active, achieved, deprecated
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by UUID REFERENCES users(id)
+);
+
 -- Ideas (Projects)
 CREATE TABLE ideas (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     org_id UUID REFERENCES organizations(id),
     creator_id UUID REFERENCES users(id),
+    objective_id UUID REFERENCES objectives(id), -- optional, can be attached later
     title VARCHAR NOT NULL,
-    status VARCHAR DEFAULT 'draft', -- draft, active, connected, innovation, archived
+    status VARCHAR DEFAULT 'draft', -- draft, active, archived
     kernel_completion INTEGER DEFAULT 0, -- 0-4 count of completed kernel files
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -359,19 +256,28 @@ CREATE TABLE context_files (
 CREATE TABLE idea_collaborators (
     idea_id UUID REFERENCES ideas(id),
     user_id UUID REFERENCES users(id),
-    role VARCHAR DEFAULT 'editor', -- 'owner', 'editor', 'viewer'
+    role VARCHAR DEFAULT 'contributor', -- 'owner', 'contributor', 'viewer'
     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (idea_id, user_id)
 );
 
--- Agent Interactions
-CREATE TABLE agent_interactions (
+-- Sessions (conversation threads with agents)
+CREATE TABLE sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     idea_id UUID REFERENCES ideas(id),
     user_id UUID REFERENCES users(id),
-    interaction_type VARCHAR, -- 'suggestion', 'analysis', 'connection', 'nudge'
-    content JSON,
-    user_response VARCHAR, -- 'accepted', 'rejected', 'ignored', NULL
+    agent_type VARCHAR NOT NULL, -- 'coherence', 'summary', 'challenge', 'approach', 'steps', 'context', 'objective'
+    title VARCHAR,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Session Messages
+CREATE TABLE session_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID REFERENCES sessions(id),
+    role VARCHAR NOT NULL, -- 'user', 'agent'
+    content TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 ```
@@ -403,41 +309,30 @@ USING vss(embedding) WITH (metric = 'cosine');
 -- LIMIT 10;
 ```
 
-### 4.3 Graph Storage (DuckPGQ)
+### 4.3 Graph Storage (DuckPGQ) - MVP
+
+For MVP, the graph schema is minimal. Advanced graph relationships (similar_challenge, complementary_approach, etc.) are deferred to Phase 2.
 
 ```sql
--- Graph schema for idea relationships
+-- MVP Graph schema - basic relationships only
 CREATE PROPERTY GRAPH idea_graph
 VERTEX TABLES (
     ideas,
-    users
+    objectives,
+    users,
+    organizations
 )
 EDGE TABLES (
-    idea_connections SOURCE KEY (source_idea_id) REFERENCES ideas(id)
-                     DESTINATION KEY (target_idea_id) REFERENCES ideas(id),
+    -- Idea supports Objective (optional, can be attached later)
+    idea_objective_links SOURCE KEY (idea_id) REFERENCES ideas(id)
+                         DESTINATION KEY (objective_id) REFERENCES objectives(id),
+    -- User collaborates on Idea
     idea_collaborators SOURCE KEY (idea_id) REFERENCES ideas(id)
-                       DESTINATION KEY (user_id) REFERENCES users(id)
+                       DESTINATION KEY (user_id) REFERENCES users(id),
+    -- User is member of Organization
+    user_orgs SOURCE KEY (user_id) REFERENCES users(id)
+              DESTINATION KEY (org_id) REFERENCES organizations(id)
 );
-
--- Idea connections (edges)
-CREATE TABLE idea_connections (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    source_idea_id UUID REFERENCES ideas(id),
-    target_idea_id UUID REFERENCES ideas(id),
-    connection_type VARCHAR, -- 'similar_challenge', 'complementary_approach', 
-                             -- 'contradictory', 'same_vector', 'user_linked'
-    strength FLOAT, -- 0.0 to 1.0, computed from embeddings or explicit
-    discovered_by VARCHAR, -- 'agent', 'user'
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(source_idea_id, target_idea_id, connection_type)
-);
-
--- Example graph traversal (find ideas 2 hops away)
--- FROM GRAPH_TABLE (idea_graph
---     MATCH (i1:ideas)-[c:idea_connections]->(i2:ideas)-[c2:idea_connections]->(i3:ideas)
---     WHERE i1.id = $idea_id
---     COLUMNS (i3.id, i3.title, c.connection_type, c2.connection_type)
--- )
 ```
 
 ### 4.4 JJ Repository Structure
@@ -475,544 +370,91 @@ Each idea has a JJ repository at `{storage_root}/ideas/{idea_id}/`:
 
 ### 5.1 Agent Philosophy
 
-The Crabgrass agent is **proactive, not reactive**. It doesn't wait for user requests—it actively pushes ideas toward innovation.
+The Crabgrass agent is **proactive, not reactive**. It doesn't wait for user requests—it actively coaches users to develop their ideas.
 
 **Posture:** Coach, not assistant. Sparring partner, not oracle.
 
-### 5.2 Agent Behaviors
+### 5.2 Agent Types
 
-#### 5.2.1 Completion Nudging
+See [concepts-and-synchronizations.md](./concepts-and-synchronizations.md) for detailed agent specifications.
 
-Triggers when kernel files are incomplete:
+| Agent | Purpose | Trigger |
+|-------|---------|---------|
+| **SummaryAgent** | Coach clear, concise, compelling summary | User edits Summary.md |
+| **ChallengeAgent** | Coach specific, measurable, significant challenge | User edits Challenge.md |
+| **ApproachAgent** | Coach feasible, differentiated approach | User edits Approach.md |
+| **StepsAgent** | Coach concrete, sequenced, assignable steps | User edits CoherentSteps.md |
+| **CoherenceAgent** | Check cross-file logical consistency | 2+ kernel files complete |
+| **ContextAgent** | Extract insights from uploaded files | Context file added |
+| **ObjectiveAgent** | Coach objective definition, show alignment | User edits objective |
 
-```python
-class CompletionNudgeAgent:
-    """Nudges users to complete kernel files."""
-    
-    def analyze(self, idea: Idea) -> Optional[Nudge]:
-        incomplete = [f for f in idea.kernel_files if not f.is_complete]
-        
-        if not incomplete:
-            return None
-            
-        # Prioritize in order: Summary → Challenge → Approach → Steps
-        priority_order = ['summary', 'challenge', 'approach', 'coherent_steps']
-        next_file = min(incomplete, key=lambda f: priority_order.index(f.file_type))
-        
-        return Nudge(
-            type='completion',
-            target=next_file.file_type,
-            message=self.generate_nudge_message(idea, next_file)
-        )
-```
+### 5.3 Completion Criteria
 
-#### 5.2.2 Coherence Checking
+Each kernel file agent evaluates content against specific criteria:
 
-Validates that kernel files are logically consistent:
-
-```python
-class CoherenceAgent:
-    """Checks logical consistency across kernel files."""
-    
-    async def analyze(self, idea: Idea) -> Optional[Suggestion]:
-        # Check: Does Approach address Challenge?
-        if idea.challenge.is_complete and idea.approach.is_complete:
-            coherence = await self.llm.evaluate_coherence(
-                challenge=idea.challenge.content,
-                approach=idea.approach.content
-            )
-            
-            if coherence.score < 0.7:
-                return Suggestion(
-                    type='coherence',
-                    message=f"Your Approach may not fully address your Challenge. {coherence.explanation}",
-                    action='edit_approach'
-                )
-        
-        # Check: Are Steps concrete enough?
-        # Check: Does Summary capture the essence?
-        # ... etc
-```
-
-#### 5.2.3 Quality Coaching
-
-Pushes for substantive, actionable content:
-
-```python
-class QualityAgent:
-    """Coaches users toward higher quality kernel files."""
-    
-    QUALITY_CRITERIA = {
-        'summary': ['clear', 'concise', 'compelling'],
-        'challenge': ['specific', 'measurable', 'significant'],
-        'approach': ['feasible', 'differentiated', 'addresses_challenge'],
-        'coherent_steps': ['concrete', 'sequenced', 'assignable']
-    }
-    
-    async def analyze(self, idea: Idea, file_type: str) -> Optional[Suggestion]:
-        content = idea.get_kernel_file(file_type).content
-        
-        evaluation = await self.llm.evaluate_quality(
-            content=content,
-            file_type=file_type,
-            criteria=self.QUALITY_CRITERIA[file_type]
-        )
-        
-        if evaluation.weakest_criterion:
-            return Suggestion(
-                type='quality',
-                message=evaluation.improvement_suggestion,
-                action='edit',
-                target=file_type
-            )
-```
-
-#### 5.2.4 Connection Discovery
-
-Finds related ideas across the organization:
-
-```python
-class ConnectionAgent:
-    """Discovers connections between ideas across the organization."""
-    
-    async def analyze(self, idea: Idea) -> List[Connection]:
-        connections = []
-        
-        # Find similar challenges
-        similar = await self.search.find_similar(
-            idea_id=idea.id,
-            file_type='challenge',
-            threshold=0.75
-        )
-        
-        for match in similar:
-            if match.idea_id != idea.id:
-                connections.append(Connection(
-                    type='similar_challenge',
-                    target_idea_id=match.idea_id,
-                    strength=match.similarity,
-                    explanation=await self.llm.explain_similarity(
-                        idea.challenge.content,
-                        match.content
-                    )
-                ))
-        
-        # Find complementary approaches
-        # Find contradictions
-        # ... etc
-        
-        return connections
-```
-
-#### 5.2.5 Context Extraction
-
-Extracts useful insights from context files (referenced via `@filename.md` in chat):
-
-```python
-class ContextExtractionAgent:
-    """Extracts insights from Markdown context files to strengthen kernel files."""
-    
-    async def analyze(self, idea: Idea, context_file: ContextFile) -> List[Insight]:
-        insights = await self.llm.extract_insights(
-            context=context_file.content,
-            kernel_files={
-                'summary': idea.summary.content,
-                'challenge': idea.challenge.content,
-                'approach': idea.approach.content,
-                'steps': idea.coherent_steps.content
-            }
-        )
-        
-        return [
-            Insight(
-                source_file=context_file.filename,
-                quote=i.quote,
-                relevance=i.relevant_to,  # which kernel file
-                suggestion=i.how_to_use
-            )
-            for i in insights
-        ]
-```
-
-### 5.3 Agent Orchestration
-
-```python
-class CrabgrassAgent:
-    """Main agent orchestrator."""
-    
-    def __init__(self):
-        self.completion = CompletionNudgeAgent()
-        self.coherence = CoherenceAgent()
-        self.quality = QualityAgent()
-        self.connection = ConnectionAgent()
-        self.extraction = ContextExtractionAgent()
-    
-    async def on_idea_updated(self, idea: Idea, trigger: str):
-        """Called when an idea is updated."""
-        
-        results = []
-        
-        # Always check completion status
-        if nudge := await self.completion.analyze(idea):
-            results.append(nudge)
-        
-        # Check coherence if multiple files complete
-        if idea.kernel_completion >= 2:
-            if suggestion := await self.coherence.analyze(idea):
-                results.append(suggestion)
-        
-        # Check quality of recently edited file
-        if trigger.startswith('file_updated:'):
-            file_type = trigger.split(':')[1]
-            if suggestion := await self.quality.analyze(idea, file_type):
-                results.append(suggestion)
-        
-        # Look for connections (async, non-blocking)
-        asyncio.create_task(self._discover_connections(idea))
-        
-        return results
-    
-    async def on_context_file_added(self, idea: Idea, context_file: ContextFile):
-        """Called when a context file is added."""
-        
-        insights = await self.extraction.analyze(idea, context_file)
-        
-        if insights:
-            return AgentMessage(
-                type='insights_found',
-                content=insights,
-                actions=['add_to_kernel', 'ignore']
-            )
-```
+| File | Criteria |
+|------|----------|
+| Summary.md | Clear, Concise, Compelling |
+| Challenge.md | Specific, Measurable, Significant |
+| Approach.md | Feasible, Differentiated, Addresses Challenge |
+| CoherentSteps.md | Concrete, Sequenced, Assignable |
 
 ### 5.4 Notification Priority
 
-Not all agent messages are equal:
-
 | Priority | Type | Delivery |
 |----------|------|----------|
-| **High** | Coherence problem, Connection to ping another user | Immediate toast |
-| **Medium** | Quality suggestion, Context insight | In-panel on next visit |
-| **Low** | Completion nudge (after 24h) | Email digest |
+| **High** | Coherence problem | Immediate toast |
+| **Medium** | Quality suggestion, Context insight | In-panel |
+| **Low** | Completion nudge | In-panel on next visit |
 
 ---
 
 ## 6. User Interface
 
-### 6.1 Screen: Idea Overview
+See [wireframes.md](./wireframes.md) for the complete UI specification including:
 
-The home screen for an idea showing kernel status, context files, and connections.
+- **Screen 1: Home (Ideas List)** - Dashboard showing ideas and objectives
+- **Screen 2: Idea Workspace** - Vertical layout with CoherenceAgent chat, kernel files, context files
+- **Screen 3: File Editor** - 50/50 split with chat + canvas for editing any file
+- **Screen 4: Objective Workspace** - Similar to Idea Workspace but for objectives
+- **Session Management** - Conversation history per agent
+- **Version History** - File history via JJ
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  ← All Ideas                                                [User] ⚙️  ?    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  {Idea Title}                                                  ⭐  •••     │
-│  {Description}                                                              │
-│                                                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  IDEA KERNEL                                                     ◉ {n}/4   │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │   │
-│  │  │ {✓|○}       │  │ {✓|○}       │  │ {✓|○}       │  │ {✓|○}       │ │   │
-│  │  │ Summary     │  │ Challenge   │  │ Approach    │  │ Coherent    │ │   │
-│  │  │             │  │             │  │             │  │ Steps       │ │   │
-│  │  │ {preview}   │  │ {preview}   │  │ {preview}   │  │ {preview}   │ │   │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘ │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-│  ┌ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┐   │
-│    ⚡ Agent: {current suggestion}                          [Action]     │   │
-│  └ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ─ ┘   │
-│                                                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  CONTEXT FILES                                                   + Add     │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  {file cards or empty state}                                        │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  CONNECTIONS                                               {n} found       │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │  {connection cards or empty state}                                  │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### 6.1 Design Philosophy
 
-### 6.2 Screen: File Editor (70/30 Split)
+The UI emulates **Claude Projects** with a vertical, document-centric layout:
 
-When editing any file, show canvas and agent chat side-by-side.
+| Claude Projects | Crabgrass | Notes |
+|-----------------|-----------|-------|
+| Project | Idea | Core work container |
+| Project Files | Kernel Files (4) + Context Files | Kernel files are fixed and required |
+| Chat | Agent Chat | Specialized agents per context |
+| — | Objective | Strategic container with similar pattern |
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  ← {Idea} / {Filename}                                      [User] ⚙️  ?   │
-├─────────────────────────────────────────────────┬───────────────────────────┤
-│                                                 │                           │
-│              CANVAS (70%)                       │     AGENT CHAT (30%)      │
-│                                                 │                           │
-├─────────────────────────────────────────────────┤───────────────────────────┤
-│                                                 │                           │
-│  {Filename}                        ↻ ⬇️ •••   │  ⚡ Crabgrass Agent        │
-│  ───────────────────────────────────────────   │                           │
-│                                                 │  ┌───────────────────────┐│
-│  {Markdown content}                             │  │ {Agent message}       ││
-│                                                 │  │                       ││
-│  |                                              │  │ [Action] [Dismiss]    ││
-│                                                 │  └───────────────────────┘│
-│                                                 │                           │
-│                                                 │  {Chat history}           │
-│                                                 │                           │
-│                                                 │───────────────────────────│
-│                                                 │  ┌───────────────────────┐│
-│                                                 │  │ Reply... @file.md     ││
-│                                                 │  │                       ││
-│                                                 │  │            ⬆️ [Send] ││
-│                                                 │  └───────────────────────┘│
-│                                                 │                           │
-├─────────────────────────────────────────────────┴───────────────────────────┤
-│  {Footer: kernel status for kernel files, "Context file" for context}      │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+### 6.2 Key UI Principles
 
-**Chat @ References:**
-- Type `@` in chat to see available context files
-- Select a file (e.g., `@research-notes.md`) to include its content as context
-- Agent will read the referenced file when responding
+- Vertical layout mirrors Claude Projects
+- Each file opens in a dedicated editor screen (50/50 chat + canvas)
+- Agents coach you through completing files
+- Consistent pattern across Ideas and Objectives
 
-### 6.3 Screen: All Ideas (Dashboard)
+### 6.3 Sharing & Permissions
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│  Crabgrass                                                  [User] ⚙️  ?   │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  MY IDEAS                                      [+ New Idea]  Filter ▼      │
-│                                                                             │
-│  ┌───────────────────────┐  ┌───────────────────────┐  ┌─────────────────┐ │
-│  │ {Title}               │  │ {Title}               │  │ {Title}         │ │
-│  │ ◉ 3/4  •  Active      │  │ ◉ 1/4  •  Draft       │  │ ◉ 4/4  •  Done  │ │
-│  │ Updated 2h ago        │  │ Updated 3d ago        │  │ Updated 1w ago  │ │
-│  │ {connections badge}   │  │ ⚡ Needs attention    │  │                 │ │
-│  └───────────────────────┘  └───────────────────────┘  └─────────────────┘ │
-│                                                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  SHARED WITH ME                                                            │
-│                                                                             │
-│  ┌───────────────────────┐  ┌───────────────────────┐                      │
-│  │ {Title}               │  │ {Title}               │                      │
-│  │ by {User} • Editor    │  │ by {User} • Viewer    │                      │
-│  └───────────────────────┘  └───────────────────────┘                      │
-│                                                                             │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│  CONNECTIONS FEED                                          View all →      │
-│                                                                             │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ 🔗 Your "Customer Feedback" has a similar challenge to              │   │
-│  │    "Voice of Customer" by Maria Chen.                    [View]    │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│  ┌─────────────────────────────────────────────────────────────────────┐   │
-│  │ 🔗 Dev Patel's "API Strategy" approach might complement your        │   │
-│  │    "Integration Hub" idea.                               [View]    │   │
-│  └─────────────────────────────────────────────────────────────────────┘   │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 6.4 Component: Agent Toast (Proactive Notification)
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│ ⚡ Crabgrass Agent                                      ✕   │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  {Message}                                                  │
-│                                                             │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ {Preview or detail if relevant}                     │   │
-│  └─────────────────────────────────────────────────────┘   │
-│                                                             │
-│                            [Secondary Action]  [Primary]    │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 6.5 UI State Machine
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      UI STATE MACHINE                           │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│                      ┌──────────────┐                           │
-│                      │   Dashboard  │                           │
-│                      │  (All Ideas) │                           │
-│                      └──────┬───────┘                           │
-│                             │                                   │
-│              ┌──────────────┼──────────────┐                   │
-│              ▼              ▼              ▼                   │
-│       ┌──────────┐   ┌──────────┐   ┌──────────┐              │
-│       │  Create  │   │  Select  │   │Connection│              │
-│       │   Idea   │   │   Idea   │   │  Feed    │              │
-│       └────┬─────┘   └────┬─────┘   └────┬─────┘              │
-│            │              │              │                     │
-│            ▼              ▼              │                     │
-│       ┌─────────────────────────────┐    │                     │
-│       │       Idea Overview         │◄───┘                     │
-│       └──────┬──────────────┬───────┘                          │
-│              │              │                                   │
-│       ┌──────┴───┐    ┌─────┴────┐                             │
-│       ▼          ▼    ▼          ▼                             │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐              │
-│  │ Kernel  │ │ Kernel  │ │ Context │ │Connection│              │
-│  │  File   │ │  File   │ │  File   │ │ Preview │              │
-│  │ Editor  │ │ Editor  │ │ Editor  │ │         │              │
-│  └─────────┘ └─────────┘ └─────────┘ └─────────┘              │
-│       │          │            │                                │
-│       └──────────┴────────────┘                                │
-│              │                                                  │
-│              ▼                                                  │
-│       ┌─────────────┐                                          │
-│       │   70/30     │                                          │
-│       │ Split View  │                                          │
-│       │ (Canvas +   │                                          │
-│       │  Agent)     │                                          │
-│       └─────────────┘                                          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
+| Role | View | Comment | Edit | Manage Collaborators |
+|------|------|---------|------|---------------------|
+| **Viewer** | ✓ | ✓ | ✗ | ✗ |
+| **Contributor** | ✓ | ✓ | ✓ | ✗ |
+| **Owner** | ✓ | ✓ | ✓ | ✓ |
 
 ---
 
 ## 7. Tech Stack
 
-### 7.1 Overview
-
-| Aspect | Technology | Rationale |
-|--------|------------|-----------|
-| **Backend** | Python 3.11+, FastAPI | Async, type hints, fast development |
-| **Event Coordination** | asyncio | Native Python async for synchronizations |
-| **AI Framework** | Google ADK | Native Gemini integration, agent primitives |
-| **Database** | DuckDB | Embedded, fast analytics, extensible |
-| **Vector Search** | DuckDB VSS Extension | Same DB for all queries |
-| **Graph DB** | DuckDB DuckPGQ | Same DB, SQL/PGQ interface |
-| **Version Control** | JJ (Jujutsu) | Conflict-free, operation log, modern |
-| **Frontend** | Vanilla JS (ES Modules) | No build step, direct control |
-| **UI Protocol** | AG-UI Protocol | Streaming, agent-native |
-| **Package Manager** | uv (Python), npx serve (dev) | Fast, modern |
-| **LLM** | Gemini | Embeddings + reasoning |
-
-### 7.2 Python Dependencies
-
-```toml
-# pyproject.toml
-[project]
-name = "crabgrass"
-version = "0.1.0"
-requires-python = ">=3.11"
-
-dependencies = [
-    "fastapi>=0.109.0",
-    "uvicorn[standard]>=0.27.0",
-    "duckdb>=0.10.0",
-    "google-generativeai>=0.4.0",   # Gemini SDK
-    "google-adk>=0.1.0",             # Agent Development Kit
-    "pydantic>=2.5.0",
-    "python-multipart>=0.0.6",       # File uploads
-    "sse-starlette>=1.6.0",          # Server-Sent Events
-    "httpx>=0.26.0",                 # Async HTTP
-    "structlog>=24.1.0",             # Logging
-]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
-    "ruff>=0.1.0",
-    "mypy>=1.8.0",
-]
-```
-
-### 7.3 Frontend Structure
-
-```
-frontend/
-├── index.html
-├── styles/
-│   ├── main.css
-│   ├── canvas.css
-│   └── components.css
-├── js/
-│   ├── main.js              # Entry point
-│   ├── concepts/
-│   │   ├── canvas.js        # Canvas concept
-│   │   ├── chat.js          # Chat concept
-│   │   ├── file-tree.js     # FileTree concept
-│   │   ├── kernel-status.js # KernelStatus concept
-│   │   └── toast.js         # Toast concept
-│   ├── sync/
-│   │   └── synchronizations.js  # Concept coordination
-│   ├── api/
-│   │   ├── client.js        # REST client
-│   │   └── events.js        # SSE EventSource client
-│   └── lib/
-│       ├── markdown.js      # MD rendering
-│       └── ag-ui.js         # AG-UI protocol
-└── assets/
-    └── icons/
-```
-
-### 7.4 Backend Structure
-
-```
-backend/
-├── crabgrass/
-│   ├── __init__.py
-│   ├── main.py              # FastAPI app
-│   ├── config.py            # Settings
-│   ├── concepts/
-│   │   ├── __init__.py
-│   │   ├── idea.py          # Idea concept
-│   │   ├── file.py          # File concept
-│   │   ├── version.py       # Version concept (JJ)
-│   │   ├── search.py        # Search concept (vector)
-│   │   ├── graph.py         # Graph concept
-│   │   ├── agent.py         # Agent concept
-│   │   ├── user.py          # User concept
-│   │   └── collab.py        # Collaboration concept
-│   ├── sync/
-│   │   ├── __init__.py
-│   │   └── synchronizations.py  # Concept coordination
-│   ├── db/
-│   │   ├── __init__.py
-│   │   ├── connection.py    # DuckDB connection
-│   │   ├── migrations.py    # Schema migrations
-│   │   └── queries.py       # SQL queries
-│   ├── ai/
-│   │   ├── __init__.py
-│   │   ├── gemini.py        # Gemini client
-│   │   ├── embeddings.py    # Embedding generation
-│   │   └── prompts.py       # System prompts
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── routes/
-│   │   │   ├── ideas.py
-│   │   │   ├── files.py
-│   │   │   ├── agent.py
-│   │   │   └── search.py
-│   │   └── sse.py           # SSE event streams
-│   └── jj/
-│       ├── __init__.py
-│       └── repository.py    # JJ operations wrapper
-├── tests/
-└── pyproject.toml
-```
+See [tech-stack.md](./tech-stack.md) for the complete technology stack including:
+- Overview of all technologies and rationale
+- Python dependencies (pyproject.toml)
+- Frontend and backend directory structures
+- System architecture diagram
 
 ---
 
@@ -1044,12 +486,14 @@ PUT    /api/ideas/{id}/context/{file_id}   # Update context file
 DELETE /api/ideas/{id}/context/{file_id}   # Delete context file
 ```
 
-#### Search & Graph
+#### Objectives
 
 ```
-POST   /api/search/similar           # Find similar ideas
-GET    /api/ideas/{id}/connections   # Get idea connections
-POST   /api/ideas/{id}/connections   # Manually link ideas
+GET    /api/objectives               # List org objectives
+POST   /api/objectives               # Create objective (admin only)
+GET    /api/objectives/{id}          # Get objective details
+PATCH  /api/objectives/{id}          # Update objective (admin only)
+GET    /api/objectives/{id}/ideas    # Get ideas linked to objective
 ```
 
 #### Agent
@@ -1077,13 +521,13 @@ Accept: text/event-stream
 event: agent_message
 data: {"id": "msg_123", "content": "Your Challenge could be more specific...", "actions": ["edit", "dismiss"], "priority": "medium"}
 
-// Connection discovered
-event: connection_found
-data: {"connection_type": "similar_challenge", "target_idea": {"id": "...", "title": "...", "owner": "..."}, "strength": 0.85}
-
 // File save confirmation
 event: file_saved
 data: {"file_type": "challenge", "version": "abc123", "saved_at": "2025-01-15T10:30:00Z"}
+
+// Kernel file completion status changed
+event: completion_changed
+data: {"idea_id": "...", "file_type": "challenge", "is_complete": true, "total_complete": 2}
 ```
 
 #### Client → Server (REST)
@@ -1157,48 +601,39 @@ Default: **Org** (visible to organization for cross-idea discovery)
 
 ## 10. Roadmap
 
-### Phase 1: Foundation (MVP)
+### Phase 1: MVP
 
-**Goal:** Single-user idea creation with agent coaching
+**Goal:** Core idea creation with agent coaching
 
-- [ ] Core data model (DuckDB tables)
-- [ ] Idea CRUD operations
+- [ ] Core data model (DuckDB tables for ideas, objectives, kernel files, context files)
+- [ ] Idea CRUD operations with objective linking
 - [ ] Kernel file editing with Markdown
-- [ ] Basic agent: completion nudging
-- [ ] Single-page web UI
+- [ ] All 7 agents (Summary, Challenge, Approach, Steps, Coherence, Context, Objective)
+- [ ] Web UI (Home, Idea Workspace, Objective Workspace, File Editor)
 - [ ] JJ integration for versioning
+- [ ] Session management (conversation history per agent)
+- [ ] Basic collaboration (owner, contributor, viewer roles)
+- [ ] Embeddings for kernel files (stored for future search)
 
-### Phase 2: Intelligence
+### Phase 2: Search & Connections
 
-**Goal:** Semantic search and quality coaching
+**Goal:** Cross-idea discovery and connections
 
-- [ ] Vector embeddings (Gemini)
-- [ ] VSS extension integration
-- [ ] Similar idea discovery
-- [ ] Quality coaching agent
-- [ ] Coherence checking agent
-- [ ] Context file support
+- [ ] Semantic search using stored embeddings
+- [ ] ConnectionAgent for discovering related ideas
+- [ ] Similar challenge / complementary approach relationships
+- [ ] Graph traversal for idea networks
+- [ ] Notification system (email digests, push)
 
-### Phase 3: Organization
-
-**Goal:** Multi-user, cross-organization connections
-
-- [ ] User authentication
-- [ ] Organization model
-- [ ] Collaboration (share ideas)
-- [ ] Graph database (DuckPGQ)
-- [ ] Connection discovery agent
-- [ ] Notification system
-
-### Phase 4: Scale
+### Phase 3: Scale
 
 **Goal:** Production readiness
 
-- [ ] Google Spanner migration path
 - [ ] Performance optimization
 - [ ] Advanced analytics dashboard
 - [ ] API for integrations
 - [ ] Mobile-responsive UI
+- [ ] Objective hierarchy (parent/child)
 
 ---
 
@@ -1206,14 +641,15 @@ Default: **Org** (visible to organization for cross-idea discovery)
 
 | Term | Definition |
 |------|------------|
-| **Idea** | A project container in Crabgrass |
+| **Idea** | A project container in Crabgrass, linked to an Objective |
+| **Objective** | Org-wide strategic goal that ideas support (flat, admin-created) |
 | **Kernel File** | One of the four required structured files (Summary, Challenge, Approach, Coherent Steps) |
 | **Context File** | Optional Markdown file for supporting material, referenced via `@filename.md` |
-| **Innovation** | An idea that has been executed and delivered value |
-| **Connection** | A relationship between two ideas |
-| **Agent** | The proactive AI coach |
+| **Session** | Persistent conversation thread with an agent |
+| **Agent** | The proactive AI coach (7 types: Summary, Challenge, Approach, Steps, Coherence, Context, Objective) |
 | **Concept** | An independent unit of functionality (architecture pattern) |
 | **Synchronization** | Coordination logic between concepts |
+| **Connection** | A relationship between two ideas (Phase 2) |
 
 ---
 
@@ -1229,5 +665,5 @@ Default: **Org** (visible to organization for cross-idea discovery)
 
 ---
 
-*Document version: 0.1.0-draft*  
+*Document version: 0.2.0*
 *Last updated: 2025-12-31*

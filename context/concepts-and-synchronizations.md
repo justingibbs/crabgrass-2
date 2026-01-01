@@ -1,6 +1,6 @@
 # Crabgrass: Concepts & Synchronizations
 
-**Version:** 0.1.0
+**Version:** 0.2.0
 **Date:** 2025-12-31
 **Architecture Pattern:** Concepts and Synchronizations (Jackson, MIT 2025)
 
@@ -15,6 +15,8 @@ This document defines the modular architecture for Crabgrass using the **Concept
 
 The goal is legibility—developers should be able to read the system "like a book" where concepts map to familiar phenomena and synchronizations represent intuition about how they interact.
 
+**Note:** For technology choices and stack details, see [tech-stack.md](./tech-stack.md).
+
 ---
 
 ## Table of Contents
@@ -25,6 +27,7 @@ The goal is legibility—developers should be able to read the system "like a bo
 4. [Graph Database Schema](#4-graph-database-schema)
 5. [Synchronizations](#5-synchronizations)
 6. [Design Decisions](#6-design-decisions)
+7. [Deferred to Later Phases](#7-deferred-to-later-phases)
 
 ---
 
@@ -39,34 +42,33 @@ The core project container in Crabgrass. An idea progresses through lifecycle st
 - `org_id`: Organization this idea belongs to
 - `creator_id`: User who created it
 - `title`: Display name
-- `status`: draft | active | connected | innovation | archived
+- `objective_id`: Linked objective (required)
+- `status`: draft | active | archived
 - `kernel_completion`: Count of completed kernel files (0-4)
 - `jj_repo_path`: Path to JJ version control repository
 - `created_at`, `updated_at`: Timestamps
 
 **Actions:**
-- `create(org_id, user_id, title, objective_id)` - Create new idea linked to an objective
+- `create(org_id, user_id, title, objective_id?)` - Create new idea (objective optional)
 - `update(idea_id, fields)` - Update metadata
 - `archive(idea_id)` - Soft delete
 - `getStatus(idea_id)` - Get current lifecycle status
 - `listAll(org_id, user_id, filters)` - List ideas user can access
-- `linkObjective(idea_id, objective_id)` - Connect idea to additional objective
 
 **Constraints:**
-- Every idea MUST be linked to at least one Objective
+- Ideas can optionally be linked to one Objective (can be attached later)
 - Ideas belong to exactly one Organization
-- Status transitions follow lifecycle rules (draft → active → connected → innovation)
+- Status transitions: draft → active → archived
 
 ---
 
 ### 1.2 Objective
 
-Org-wide strategic objectives that ideas connect to. Hierarchical (OKR-style).
+Org-wide strategic objectives that ideas connect to. Flat structure (no hierarchy).
 
 **State:**
 - `id`: Unique identifier
 - `org_id`: Organization this belongs to
-- `parent_id`: Parent objective (for hierarchy), null if top-level
 - `title`: Display name
 - `description`: Detailed description
 - `owner_id`: User accountable for this objective
@@ -75,19 +77,15 @@ Org-wide strategic objectives that ideas connect to. Hierarchical (OKR-style).
 - `created_at`, `created_by`: Timestamps and creator
 
 **Actions:**
-- `create(org_id, title, description, owner_id, parent_id?)` - Admin only
+- `create(org_id, title, description, owner_id)` - Admin only
 - `update(objective_id, fields)` - Admin only
 - `archive(objective_id)` - Admin only
-- `setParent(objective_id, parent_id)` - Admin only
-- `list(org_id)` - All users, flat list
-- `getTree(org_id)` - All users, hierarchical view
-- `getChildren(objective_id)` - Get sub-objectives
+- `list(org_id)` - All users
 - `getIdeas(objective_id)` - Get ideas supporting this objective
 
 **Constraints:**
 - Only org admins can create/update/archive
 - All org members can view and link ideas to objectives
-- Archiving does NOT cascade to children (reassigns to grandparent or orphans)
 
 ---
 
@@ -108,7 +106,7 @@ Required structured files that define an idea. Four types, cannot be deleted.
 - `content`: Markdown content
 - `content_hash`: For change detection
 - `is_complete`: Boolean, determined by specialized agent
-- `embedding`: Vector embedding (768 dimensions for Gemini)
+- `embedding`: Vector embedding (see [tech-stack.md](./tech-stack.md) for dimensions)
 - `updated_at`, `updated_by`: Timestamps and last editor
 
 **Actions:**
@@ -122,7 +120,6 @@ Required structured files that define an idea. Four types, cannot be deleted.
 - Cannot be deleted (only edited)
 - Always exist for every idea (initialized empty on idea creation)
 - Completion determined by specialized agents, not users
-- Synced to vector database for similarity search
 
 ---
 
@@ -133,24 +130,22 @@ Optional supporting materials uploaded by users or created by agents.
 **State:**
 - `id`: Unique identifier
 - `idea_id`: Parent idea
-- `filename`: Display name
-- `content`: File content (text extracted if PDF, etc.)
-- `mime_type`: File type
-- `embedding`: Vector embedding
+- `filename`: Display name (must end in .md, no spaces)
+- `content`: Markdown content (max 50KB)
 - `created_by`: User ID or null if agent-created
 - `created_by_agent`: Boolean
 - `created_at`: Timestamp
 
 **Actions:**
-- `create(idea_id, filename, content, mime_type, user_id?)` - Upload file
+- `create(idea_id, filename, content, user_id?)` - Create file
 - `read(idea_id, file_id)` - Get content
+- `update(idea_id, file_id, content)` - Update content
 - `delete(idea_id, file_id)` - Remove file
 - `list(idea_id)` - List all context files
-- `setEmbedding(file_id, embedding)` - Store vector
 
 **Constraints:**
 - Can be deleted (unlike kernel files)
-- Not indexed in graph database directly (but embeddings stored for RAG)
+- Markdown only, max 50KB
 - Can be created by ContextAgent with insights
 
 ---
@@ -166,9 +161,7 @@ JJ (Jujutsu) version control wrapper for file history.
 - `initialize(idea_id)` - Create new JJ repository
 - `commit(idea_id, file_type, content)` - Save version with structured message
 - `history(idea_id, file_type?)` - Get commit history
-- `branch(idea_id, branch_name)` - Create exploration branch
-- `merge(idea_id, branch_name)` - Merge branch back
-- `undo(idea_id)` - Revert last operation
+- `restore(idea_id, file_type, commit_id)` - Restore to previous version
 
 **Constraints:**
 - One repository per idea
@@ -177,41 +170,22 @@ JJ (Jujutsu) version control wrapper for file history.
 
 ---
 
-### 1.6 Search
+### 1.6 Search (Deferred to Phase 2)
 
-Vector similarity search using embeddings.
-
-**State:**
-- Embeddings stored in DuckDB VSS extension
-
-**Actions:**
-- `findSimilar(embedding, file_type?, threshold)` - Find similar content
-- `query(org_id, text_query)` - Semantic search across ideas
-- `reindex(idea_id)` - Regenerate all embeddings for an idea
-
-**Constraints:**
-- Scoped to organization (cross-org search not allowed)
-- Only kernel files are indexed (context files have embeddings but for RAG only)
+Semantic search across ideas using vector embeddings. See [Section 7: Deferred to Later Phases](#7-deferred-to-later-phases).
 
 ---
 
-### 1.7 Graph
+### 1.7 Embedding
 
-Relationship storage and traversal using DuckPGQ.
-
-**State:**
-- Property graph with nodes and edges (see Section 4)
+Vector generation for files.
 
 **Actions:**
-- `connect(source_id, target_id, relationship_type, properties)` - Create edge
-- `disconnect(source_id, target_id, relationship_type)` - Remove edge
-- `traverse(start_id, relationship_types, depth)` - Graph traversal
-- `getConnections(idea_id)` - Get all relationships for an idea
+- `generate(content)` - Create embedding vector (see [tech-stack.md](./tech-stack.md) for model and dimensions)
 
 **Constraints:**
-- Scoped to organization
-- Not directly visible to users (internal for agent intelligence)
-- Edges have properties (strength, created_by, timestamps)
+- Embedding model configured in [tech-stack.md](./tech-stack.md)
+- All kernel files get embeddings on save
 
 ---
 
@@ -232,7 +206,6 @@ Identity and preferences.
 - `authenticate(credentials)` - Login
 - `getPreferences(user_id)` - Get settings
 - `updatePreferences(user_id, preferences)` - Save settings
-- `activity(user_id)` - Get recent activity
 
 ---
 
@@ -260,7 +233,7 @@ Sharing and permissions for ideas.
 
 **State:**
 - `idea_id`, `user_id`: Composite key
-- `role`: owner | editor | viewer
+- `role`: owner | contributor | viewer
 - `added_at`: Timestamp
 
 **Actions:**
@@ -271,73 +244,73 @@ Sharing and permissions for ideas.
 
 **Constraints:**
 - Owner cannot be removed (transfer ownership instead)
-- Viewers can read but not edit
+- Roles: owner (full control), contributor (can edit), viewer (read-only)
 
 ---
 
 ### 1.11 Session
 
-Persistent conversation threads with agents (like Claude Projects).
+Persistent conversation threads with agents.
 
 **State:**
 - `id`: Unique identifier
 - `idea_id`: Parent idea
 - `user_id`: Who started it
+- `agent_type`: coherence | summary | challenge | approach | steps | context | objective
 - `title`: Auto-generated or user-set
 - `messages`: List of conversation messages
 - `created_at`, `last_active`: Timestamps
 
 **Actions:**
-- `create(idea_id, user_id)` - Start new conversation
+- `create(idea_id, user_id, agent_type)` - Start new conversation
 - `addMessage(session_id, role, content)` - Add to history
 - `getHistory(session_id, limit?)` - Load conversation
-- `rename(session_id, title)` - Update title
-- `list(idea_id)` - All sessions for an idea
-- `resume(session_id)` - Load previous conversation
+- `list(idea_id, agent_type?)` - All sessions for an idea/agent
 
 **Constraints:**
-- Sessions belong to one idea
-- Messages are ephemeral for agent suggestions (not permanently stored beyond session)
-
----
-
-### 1.12 Embedding
-
-Vector generation for files.
-
-**Actions:**
-- `generate(content)` - Create embedding vector (768 dimensions for Gemini)
-
-**Constraints:**
-- Uses Gemini embedding model
-- All kernel and context files get embeddings
-
----
-
-### 1.13 Notification
-
-Backend notification management.
-
-**State:**
-- `id`: Unique identifier
-- `user_id`: Recipient
-- `type`: idea_created | idea_linked | invited_to_idea | connection_suggested | etc.
-- `priority`: high | medium | low
-- `content`: JSON payload
-- `read`: Boolean
-- `created_at`: Timestamp
-
-**Actions:**
-- `create(user_id, type, priority, content)` - Create notification
-- `markRead(notification_id)` - Mark as read
-- `listPending(user_id)` - Get unread notifications
-- `digest(user_id)` - Generate email digest
+- Sessions belong to one idea and one agent type
+- Messages stored for context continuity
 
 ---
 
 ## 2. Frontend Concepts
 
-### 2.1 Canvas
+### 2.1 IdeaWorkspace
+
+The main workspace for viewing and editing an idea.
+
+**State:**
+- `idea`: Current idea data
+- `kernelFiles`: List of kernel file metadata
+- `contextFiles`: List of context file metadata
+- `collaborators`: List of collaborators
+- `currentSessionId`: Active chat session
+
+**Actions:**
+- `load(idea_id)` - Load idea and all related data
+- `updateTitle(title)` - Update idea title
+- `updateObjective(objective_id)` - Change linked objective
+- `refresh()` - Reload from server
+
+---
+
+### 2.2 ObjectiveWorkspace
+
+The workspace for viewing and editing an objective.
+
+**State:**
+- `objective`: Current objective data
+- `linkedIdeas`: Ideas supporting this objective
+- `contextFiles`: List of context file metadata
+- `currentSessionId`: Active chat session
+
+**Actions:**
+- `load(objective_id)` - Load objective and linked ideas
+- `refresh()` - Reload from server
+
+---
+
+### 2.3 Canvas
 
 Markdown rendering and editing surface.
 
@@ -345,35 +318,21 @@ Markdown rendering and editing surface.
 - `content`: Current markdown content
 - `isDirty`: Has unsaved changes
 - `isEditing`: Edit mode vs preview mode
-
-**Actions:**
-- `render(content)` - Display markdown
-- `edit()` - Enter edit mode
-- `save()` - Persist changes
-- `preview()` - Toggle preview mode
-
----
-
-### 2.2 Editor
-
-Text manipulation within canvas.
-
-**State:**
 - `cursorPosition`: Current cursor location
 - `selection`: Selected text range
-- `undoStack`, `redoStack`: Edit history
 
 **Actions:**
 - `load(content)` - Initialize with content
+- `edit()` - Enter edit mode
+- `save()` - Persist changes
+- `preview()` - Toggle preview mode
 - `insertText(text, position)` - Add text
-- `deleteText(start, end)` - Remove text
 - `undo()` - Revert last change
 - `redo()` - Restore reverted change
-- `getCursor()` - Get cursor position
 
 ---
 
-### 2.3 Chat
+### 2.4 Chat
 
 Agent conversation display.
 
@@ -381,48 +340,31 @@ Agent conversation display.
 - `messages`: List of displayed messages
 - `isStreaming`: Agent response in progress
 - `pendingMessage`: User input being composed
+- `currentSessionId`: Active session ID
 
 **Actions:**
 - `send(message)` - Send user message
 - `receive(message)` - Display agent message
 - `stream(chunk)` - Append streaming response
-- `clear()` - Clear conversation display
-- `loadHistory(messages)` - Restore previous session
+- `loadSession(session_id)` - Load previous conversation
+- `newSession()` - Start fresh conversation
 
 ---
 
-### 2.4 Session (Frontend)
-
-Session picker and history management.
-
-**State:**
-- `currentSession`: Active session
-- `sessionList`: Available sessions for current idea
-- `isLoading`: Loading state
-
-**Actions:**
-- `load(session_id)` - Resume previous conversation
-- `create()` - Start new session
-- `switchTo(session_id)` - Change active session
-- `listAll(idea_id)` - Show session picker
-- `rename(session_id, title)` - Edit session title
-
----
-
-### 2.5 FileTree
+### 2.5 FileList
 
 File navigation for kernel and context files.
 
 **State:**
-- `files`: List of files
-- `selectedFile`: Currently selected
-- `expandedFolders`: UI state
+- `kernelFiles`: List of kernel files with completion status
+- `contextFiles`: List of context files
+- `selectedFile`: Currently selected file
 
 **Actions:**
-- `list(idea_id)` - Load file list
-- `select(file_id)` - Select file for editing
-- `organize()` - Rearrange (context files only)
-- `filter(criteria)` - Filter displayed files
+- `load(idea_id)` - Load file list
+- `select(file_id, file_type)` - Select file for editing
+- `createContextFile(filename)` - Create new context file
+- `deleteContextFile(file_id)` - Remove context file
 
 ---
 
@@ -432,12 +374,11 @@ Progress tracking for kernel file completion.
 
 **State:**
 - `completion`: Count of completed files (0-4)
-- `fileStatuses`: Per-file completion state
+- `fileStatuses`: Map of file_type → is_complete
 
 **Actions:**
 - `refresh(idea_id)` - Reload status
-- `navigate(file_type)` - Go to specific kernel file
-- `getProgress()` - Get completion percentage
+- `getProgress()` - Get completion count
 
 ---
 
@@ -461,32 +402,14 @@ Notification display.
 Dashboard for viewing all ideas.
 
 **State:**
-- `ideas`: List of ideas
+- `ideas`: List of ideas (owned + shared)
+- `objectives`: List of objectives
 - `filters`: Active filter criteria
-- `sortField`, `sortDirection`: Sort state
 
 **Actions:**
-- `list(filters?)` - Load ideas
+- `load()` - Load ideas and objectives
 - `filter(criteria)` - Apply filters
-- `sort(field, direction)` - Change sort order
 - `refresh()` - Reload from server
-
----
-
-### 2.9 ObjectiveTree
-
-Hierarchical view of organizational objectives.
-
-**State:**
-- `objectives`: Tree structure of objectives
-- `expandedNodes`: UI state
-- `selectedObjective`: Currently selected
-
-**Actions:**
-- `load(org_id)` - Load objective tree
-- `expand(objective_id)` - Show children
-- `collapse(objective_id)` - Hide children
-- `select(objective_id)` - Select for linking
 
 ---
 
@@ -580,6 +503,7 @@ Cross-cutting agent that checks logical consistency across all kernel files.
 - `evaluate(idea_id)` - Check consistency across all kernel files
 - `findGaps(idea_id)` - Identify logical disconnects
 - `suggest(idea_id)` - Recommend which file to revise
+- `suggestObjective(idea_id)` - Recommend objective based on content
 
 **Checks:**
 - Does Approach address Challenge?
@@ -591,30 +515,7 @@ Cross-cutting agent that checks logical consistency across all kernel files.
 
 ---
 
-### 3.6 ConnectionAgent
-
-Finds related ideas across the organization.
-
-**Purpose:** Discover connections between ideas to enable collaboration and avoid duplication.
-
-**Actions:**
-- `discover(idea_id)` - Find related ideas using embeddings and graph
-- `explain(idea_id, target_id)` - Generate explanation of relationship
-- `recommend(idea_id)` - Suggest connections for user approval
-
-**Relationship Types Discovered:**
-- Similar Challenge: Ideas addressing related problems
-- Complementary Approach: Ideas that could combine
-- Contradictory: Ideas with conflicting assumptions
-- Builds On: Ideas that extend others
-
-**Trigger:** Runs when all 4 kernel files are complete.
-
-**Constraint:** Always suggests to user; never auto-creates connections.
-
----
-
-### 3.7 ContextAgent
+### 3.6 ContextAgent
 
 Extracts insights from uploaded context files.
 
@@ -627,60 +528,45 @@ Extracts insights from uploaded context files.
 
 **Trigger:** Runs when a context file is uploaded.
 
-**Output:** Suggestions like "I found something in 'customer_interview.md' relevant to your Challenge: [quote]. Would you like to incorporate this?"
+**Output:** Suggestions like "I found something in 'customer_interview.md' relevant to your Challenge. Would you like to incorporate this?"
+
+---
+
+### 3.7 ObjectiveAgent
+
+Helps define objectives and shows alignment with linked ideas.
+
+**Purpose:** Coach objective definition and summarize idea alignment.
+
+**Actions:**
+- `coach(objective_id, content)` - Provide guidance on objective definition
+- `summarizeAlignment(objective_id)` - Show how linked ideas support the objective
+- `suggest(objective_id)` - Offer improvements
 
 ---
 
 ## 4. Graph Database Schema
 
-The graph is internal (not visible to users) and powers agent intelligence.
+The graph is internal (not visible to users) and powers agent intelligence. MVP uses minimal schema.
 
 ### 4.1 Nodes
 
 | Node Type | Key Properties | Notes |
 |-----------|----------------|-------|
-| **Idea** | id, title, status, org_id, kernel_completion | Core entity |
-| **Objective** | id, title, timeframe, status, org_id, parent_id | Hierarchical |
+| **Idea** | id, title, status, org_id | Core entity |
+| **Objective** | id, title, timeframe, status, org_id | Flat structure |
 | **User** | id, name, org_id, role | Identity |
 | **Organization** | id, name | Multi-tenant root |
-| **KernelFile** | id, idea_id, file_type, is_complete, embedding | With vector |
-| **ContextFile** | id, idea_id, filename, embedding | With vector |
 
-### 4.2 Relationships
-
-#### Idea Relationships
+### 4.2 Relationships (MVP)
 
 | Relationship | From | To | Properties | Notes |
 |--------------|------|-----|------------|-------|
-| **SUPPORTS** | Idea | Objective | strength, created_at, created_by | Required: every idea must have at least one |
-| **SIMILAR_CHALLENGE** | Idea | Idea | similarity (0-1), discovered_at | Computed from Challenge embeddings |
-| **COMPLEMENTARY_APPROACH** | Idea | Idea | compatibility (0-1), explanation | Approaches that could combine |
-| **CONTRADICTS** | Idea | Idea | tension_type, explanation | Conflicting assumptions |
-| **BUILDS_ON** | Idea | Idea | relationship, created_by | User-declared extension |
-
-#### User Relationships
-
-| Relationship | From | To | Properties | Notes |
-|--------------|------|-----|------------|-------|
+| **SUPPORTS** | Idea | Objective | created_at | Optional: can be attached later |
 | **CREATED** | User | Idea | created_at | Immutable |
-| **COLLABORATES_ON** | User | Idea | role (owner/editor/viewer), added_at | Mutable |
+| **COLLABORATES_ON** | User | Idea | role, added_at | Mutable |
 | **OWNS** | User | Objective | assigned_at | Accountability |
 | **MEMBER_OF** | User | Organization | role, joined_at | Org membership |
-
-#### Objective Relationships
-
-| Relationship | From | To | Properties | Notes |
-|--------------|------|-----|------------|-------|
-| **PARENT_OF** | Objective | Objective | created_at | Creates OKR-style hierarchy |
-
-#### File Relationships
-
-| Relationship | From | To | Properties | Notes |
-|--------------|------|-----|------------|-------|
-| **BELONGS_TO** | KernelFile | Idea | file_type | Ownership |
-| **BELONGS_TO** | ContextFile | Idea | uploaded_at | Ownership |
-| **SIMILAR_CONTENT** | KernelFile | KernelFile | similarity (0-1) | Cross-idea, same file_type |
-| **INFORMS** | ContextFile | KernelFile | relevance (0-1), extracted_insights | Created by ContextAgent |
 
 ---
 
@@ -692,14 +578,14 @@ Synchronizations define how concepts interact. They are declarative rules, not b
 
 ```
 sync IdeaCreated:
-    when Idea.create(org_id, user_id, title, objective_id):
+    when Idea.create(org_id, user_id, title, objective_id?):
         → KernelFile.initializeAll(idea_id)      # Create 4 empty kernel files
         → Version.initialize(idea_id)             # Create JJ repo
-        → Graph.connect(idea_id, objective_id, "SUPPORTS")
-        → Session.create(idea_id, user_id)        # Start first conversation
+        → if objective_id: Graph.connect(idea_id, objective_id, "SUPPORTS")
+        → Session.create(idea_id, user_id, "coherence")  # Start coherence agent session
 
-sync IdeaObjectiveLinked:
-    when Idea.linkObjective(idea_id, objective_id):
+sync IdeaLinkedToObjective:
+    when Idea.update(idea_id, objective_id):     # When objective is attached later
         → Graph.connect(idea_id, objective_id, "SUPPORTS")
 
 sync IdeaArchived:
@@ -723,94 +609,38 @@ sync KernelFileMarkedComplete:
     when KernelFile.markComplete(idea_id, file_type):
         → count = KernelFile.getCompletionCount(idea_id)
         → if count >= 2: CoherenceAgent.evaluate(idea_id)
-        → if count == 4: ConnectionAgent.discover(idea_id)
 ```
 
-### 5.3 Similarity & Connections
-
-```
-sync SimilarityComputed:
-    when Embedding.generate(idea_id, file_type, embedding):
-        → similar = Search.findSimilar(embedding, file_type, threshold=0.75)
-        → for match in similar where match.idea_id != idea_id:
-            → Graph.connect(idea_id, match.idea_id, "SIMILAR_CONTENT", similarity=match.score)
-            → if file_type == "challenge":
-                → Graph.connect(idea_id, match.idea_id, "SIMILAR_CHALLENGE", similarity=match.score)
-
-sync ConnectionDiscovered:
-    when ConnectionAgent.discover(idea_id):
-        → connections = ConnectionAgent.getPendingConnections(idea_id)
-        → for conn in connections:
-            → Session.addMessage(idea_id, "agent", suggestion)
-            # User must approve; agent never auto-creates user-facing connections
-
-sync ConnectionApproved:
-    when User.approveConnection(idea_id, target_id, connection_type):
-        → Graph.connect(idea_id, target_id, connection_type, created_by="user")
-```
-
-### 5.4 Context Files
+### 5.3 Context Files
 
 ```
 sync ContextFileAdded:
     when ContextFile.create(idea_id, content, filename):
-        → embedding = Embedding.generate(content)
-        → ContextFile.setEmbedding(file_id, embedding)
         → insights = ContextAgent.extract(idea_id, content)
         → for insight in insights:
-            → Graph.connect(context_file_id, insight.kernel_file_id, "INFORMS", relevance=insight.relevance)
             → Session.addMessage(idea_id, "agent", insight.suggestion)
 ```
 
-### 5.5 Sessions
+### 5.4 Sessions
 
 ```
 sync SessionResumed:
-    when Session.resume(session_id):
+    when Chat.loadSession(session_id):
         → history = Session.getHistory(session_id)
-        → Chat.loadHistory(history)
+        → Chat.display(history)
 
 sync AgentSuggestionMade:
     when Agent.suggest(idea_id, suggestion):
         → Session.addMessage(idea_id, "agent", suggestion.content)
         → Chat.display(suggestion)
-        # All suggestions stored in session for context
 ```
 
-### 5.6 Objectives
-
-```
-sync ObjectiveCreated:
-    when Objective.create(org_id, title, parent_id?):
-        → if parent_id: Graph.connect(parent_id, objective_id, "PARENT_OF")
-
-sync ObjectiveArchived:
-    when Objective.archive(objective_id):
-        → children = Objective.getChildren(objective_id)
-        → grandparent = Objective.getParent(objective_id)
-        → for child in children:
-            → Objective.setParent(child.id, grandparent)  # Reassign to grandparent or orphan
-```
-
-### 5.7 Collaboration
+### 5.5 Collaboration
 
 ```
 sync CollaboratorAdded:
     when Collab.invite(idea_id, user_id, role):
-        → Notification.create(user_id, "invited_to_idea", idea_id)
-```
-
-### 5.8 Notifications
-
-```
-sync HighPriorityNotification:
-    when Notification.create(user_id, type, priority="high", content):
-        → Toast.notify(content, priority, actions)
-
-sync ObjectiveOwnerNotified:
-    when Idea.linkObjective(idea_id, objective_id):
-        → owner = Objective.getOwner(objective_id)
-        → Notification.create(owner, "idea_linked", {idea_id, objective_id})
+        → Toast.notify(user_id, "You've been invited to collaborate")
 ```
 
 ---
@@ -823,27 +653,42 @@ These decisions were made to simplify implementation and align with product goal
 |----------|--------|-----------|
 | **Simultaneous edits** | Last-write-wins | Avoid complex real-time collaboration; JJ handles versioning |
 | **Agent autonomy** | Always requires user approval | Trust and control; agents suggest, users decide |
-| **Suggestion persistence** | Ephemeral (stored in Session) | Suggestions are conversational, not permanent records |
+| **Suggestion persistence** | Stored in Session | Suggestions are conversational context |
 | **Graph visibility** | Internal only | Powers agent intelligence; users see results, not raw graph |
 | **Kernel completion** | Determined by agents | Quality-based, not length-based or user-declared |
-| **Objectives** | Org-wide, hierarchical, admin-created | Ensures strategic alignment; no personal objectives |
-| **File embeddings** | All files get embeddings | Enables RAG for context files, similarity for kernel files |
+| **Objectives** | Flat structure, admin-created | Simplified model; no hierarchy for MVP |
+| **File embeddings** | Kernel files only for MVP | Enables future similarity search |
+
+---
+
+## 7. Deferred to Later Phases
+
+The following concepts and capabilities are intentionally deferred:
+
+| Concept/Feature | Phase | Notes |
+|-----------------|-------|-------|
+| **Search** | Phase 2 | Semantic search across ideas using embeddings |
+| **ConnectionAgent** | Phase 2 | Discover relationships between ideas |
+| **Graph traversal** | Phase 2 | SIMILAR_CHALLENGE, COMPLEMENTARY_APPROACH relationships |
+| **Notification** | Phase 2 | Email digests, push notifications |
+| **Objective hierarchy** | Future | Parent/child objectives (OKR-style) |
+| **Context file embeddings** | Phase 2 | RAG for context files |
 
 ---
 
 ## Appendix: Agent-to-File Mapping
 
-| Agent | Kernel File | Completion Criteria |
+| Agent | File/Screen | Completion Criteria |
 |-------|-------------|---------------------|
 | SummaryAgent | Summary.md | Clear, concise, compelling |
 | ChallengeAgent | Challenge.md | Specific, measurable, significant |
 | ApproachAgent | Approach.md | Feasible, differentiated, addresses challenge |
 | StepsAgent | CoherentSteps.md | Concrete, sequenced, assignable |
-| CoherenceAgent | (all files) | Cross-file logical consistency |
-| ConnectionAgent | (none) | Discovers related ideas |
-| ContextAgent | (none) | Extracts insights from uploads |
+| CoherenceAgent | Idea Workspace | Cross-file logical consistency |
+| ContextAgent | Context files | Extracts insights from uploads |
+| ObjectiveAgent | Objective Workspace | Clear success criteria, alignment |
 
 ---
 
-*Document version: 0.1.0*
+*Document version: 0.2.0*
 *Last updated: 2025-12-31*
