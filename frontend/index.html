@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crabgrass</title>
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/components.css">
+</head>
+<body>
+    <header class="header">
+        <div class="header-left">
+            <div class="logo">
+                <span class="logo-icon">🦀</span>
+                <span class="logo-text">Crabgrass</span>
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="help-button" aria-label="Help">?</button>
+            <div class="user-switcher" id="user-switcher">
+                <button class="user-switcher-button" id="user-switcher-button">
+                    <span class="user-name" id="current-user-name">Loading...</span>
+                    <span class="dropdown-arrow">▼</span>
+                </button>
+                <div class="user-switcher-dropdown" id="user-switcher-dropdown">
+                    <!-- Users will be populated here -->
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="main-content" id="main-content">
+        <!-- Content will be rendered by router -->
+        <div class="loading">Loading...</div>
+    </main>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>

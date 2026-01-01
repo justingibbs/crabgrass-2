@@ -1,0 +1,208 @@
+/* User Switcher Component */
+.user-switcher {
+    position: relative;
+}
+
+.user-switcher-button {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    min-width: 140px;
+}
+
+.user-switcher-button:hover {
+    background: var(--bg-hover);
+}
+
+.user-name {
+    flex: 1;
+    text-align: left;
+}
+
+.dropdown-arrow {
+    font-size: 0.625rem;
+    color: var(--text-muted);
+}
+
+.user-switcher-dropdown {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: var(--spacing-xs);
+    min-width: 200px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    display: none;
+    z-index: 101;
+}
+
+.user-switcher-dropdown.open {
+    display: block;
+}
+
+.user-option {
+    display: flex;
+    flex-direction: column;
+    padding: var(--spacing-sm) var(--spacing-md);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.user-option:last-child {
+    border-bottom: none;
+}
+
+.user-option:hover {
+    background: var(--bg-hover);
+}
+
+.user-option.active {
+    background: var(--bg-tertiary);
+}
+
+.user-option-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.user-option-meta {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* Cards */
+.card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+}
+
+.card:hover {
+    border-color: var(--color-primary);
+    cursor: pointer;
+}
+
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--spacing-md);
+}
+
+/* Idea Card */
+.idea-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.idea-card-title {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    color: var(--text-primary);
+}
+
+.idea-card-progress {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+}
+
+.idea-card-objective {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.idea-card-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+.idea-card-updated {
+    font-size: var(--font-size-sm);
+    color: var(--text-muted);
+}
+
+/* Progress indicator */
+.progress-dots {
+    display: flex;
+    gap: 2px;
+}
+
+.progress-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--border-color);
+}
+
+.progress-dot.complete {
+    background: var(--color-primary);
+}
+
+/* New Idea Card */
+.new-idea-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    min-height: 120px;
+    border-style: dashed;
+    color: var(--text-muted);
+}
+
+.new-idea-card:hover {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+}
+
+.new-idea-icon {
+    font-size: var(--font-size-2xl);
+}
+
+/* Empty state */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* Route placeholders */
+.route-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+    background: var(--bg-primary);
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--border-color);
+}
+
+.route-placeholder h1 {
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.route-placeholder p {
+    color: var(--text-muted);
+}

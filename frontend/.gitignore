@@ -1,0 +1,7 @@
+# Dependencies (if any added later)
+node_modules/
+
+# IDE
+.idea/
+.vscode/
+*.swp
