@@ -13,6 +13,33 @@ ACME_ORG_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 SALLY_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000010")
 SAM_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000011")
 
+# Kernel file types
+KERNEL_FILE_TYPES = ["summary", "challenge", "approach", "coherent_steps"]
+
+# Kernel file templates
+KERNEL_FILE_TEMPLATES = {
+    "summary": """# Summary
+
+_Describe your idea in 2-3 sentences. What is it? What does it do?_
+""",
+    "challenge": """# Challenge
+
+_What problem are you solving? Who experiences this problem? Why does it matter?_
+""",
+    "approach": """# Approach
+
+_How will you solve this challenge? What makes your approach unique or effective?_
+""",
+    "coherent_steps": """# Coherent Steps
+
+_What are the concrete next actions? List 3-5 specific steps to move forward._
+
+1.
+2.
+3.
+""",
+}
+
 
 def run_migrations() -> None:
     """Run all database migrations."""
@@ -77,6 +104,47 @@ def _create_schema(conn) -> None:
             status VARCHAR DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             created_by UUID REFERENCES users(id)
+        )
+    """)
+
+    # Ideas
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS ideas (
+            id UUID PRIMARY KEY,
+            org_id UUID REFERENCES organizations(id),
+            creator_id UUID REFERENCES users(id),
+            objective_id UUID REFERENCES objectives(id),
+            title VARCHAR NOT NULL,
+            status VARCHAR DEFAULT 'draft',
+            kernel_completion INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Kernel Files
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS kernel_files (
+            id UUID PRIMARY KEY,
+            idea_id UUID REFERENCES ideas(id),
+            file_type VARCHAR NOT NULL,
+            content TEXT,
+            content_hash VARCHAR,
+            is_complete BOOLEAN DEFAULT FALSE,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_by UUID REFERENCES users(id),
+            UNIQUE(idea_id, file_type)
+        )
+    """)
+
+    # Idea collaborators
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS idea_collaborators (
+            idea_id UUID REFERENCES ideas(id),
+            user_id UUID REFERENCES users(id),
+            role VARCHAR DEFAULT 'contributor',
+            added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (idea_id, user_id)
         )
     """)
 

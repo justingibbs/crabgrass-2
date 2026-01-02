@@ -5,6 +5,7 @@
  */
 
 import { UserSwitcher } from './concepts/user-switcher.js';
+import { IdeaList } from './concepts/idea-list.js';
 
 /**
  * Simple hash-based router.
@@ -108,35 +109,10 @@ class Router {
  */
 const routes = {
     '/': (params, container) => {
-        container.innerHTML = `
-            <div class="page">
-                <div class="section-header">
-                    <span class="section-title">Contributing To</span>
-                    <button class="button button-primary">+ New Idea</button>
-                </div>
-                <div class="card-grid">
-                    <div class="card new-idea-card" onclick="window.location.hash='#/ideas/new'">
-                        <span class="new-idea-icon">+</span>
-                        <span>New Idea</span>
-                        <span style="font-size: 0.75rem; color: var(--text-muted);">Start capturing your next innovation</span>
-                    </div>
-                </div>
-
-                <div class="section-header" style="margin-top: var(--spacing-xl);">
-                    <span class="section-title">Shared With Me</span>
-                </div>
-                <div class="empty-state">
-                    <p>No ideas have been shared with you yet.</p>
-                </div>
-
-                <div class="section-header" style="margin-top: var(--spacing-xl);">
-                    <span class="section-title">Objectives</span>
-                </div>
-                <div class="empty-state">
-                    <p>No objectives yet. Objectives will appear here once created by admins.</p>
-                </div>
-            </div>
-        `;
+        // Use IdeaList concept to render and manage the home page
+        const ideaList = new IdeaList(container);
+        window.crabgrass.ideaList = ideaList; // Store reference for retry button
+        ideaList.load();
     },
 
     '/ideas/:id': (params, container) => {
@@ -172,15 +148,17 @@ const routes = {
 async function init() {
     console.log('Crabgrass initializing...');
 
+    // Initialize global state object first (routes may need it)
+    window.crabgrass = {};
+
     // Initialize user switcher
     const userSwitcher = new UserSwitcher();
     await userSwitcher.init();
+    window.crabgrass.userSwitcher = userSwitcher;
 
-    // Initialize router
+    // Initialize router (this will trigger the initial route)
     const router = new Router(routes);
-
-    // Make router available globally for debugging
-    window.crabgrass = { router, userSwitcher };
+    window.crabgrass.router = router;
 
     console.log('Crabgrass ready');
 }

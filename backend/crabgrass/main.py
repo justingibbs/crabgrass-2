@@ -8,7 +8,7 @@ import structlog
 from .config import settings
 from .db.connection import get_connection, close_connection
 from .db.migrations import run_migrations
-from .api.routes import auth
+from .api.routes import auth, ideas
 
 logger = structlog.get_logger()
 
@@ -48,6 +48,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
+app.include_router(ideas.router)
 
 
 @app.get("/health")

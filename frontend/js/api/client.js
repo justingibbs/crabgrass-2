@@ -71,6 +71,58 @@ export const apiClient = {
             method: 'POST',
         });
     },
+
+    // --- Ideas ---
+
+    /**
+     * Get list of ideas for the current user.
+     */
+    async getIdeas() {
+        return request('/api/ideas');
+    },
+
+    /**
+     * Create a new idea.
+     * @param {Object} data - Idea data
+     * @param {string} [data.title] - Idea title (default: "Untitled Idea")
+     * @param {string} [data.objective_id] - Optional objective ID
+     */
+    async createIdea(data = {}) {
+        return request('/api/ideas', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    /**
+     * Get an idea by ID.
+     * @param {string} ideaId - Idea ID
+     */
+    async getIdea(ideaId) {
+        return request(`/api/ideas/${ideaId}`);
+    },
+
+    /**
+     * Update an idea.
+     * @param {string} ideaId - Idea ID
+     * @param {Object} data - Fields to update
+     */
+    async updateIdea(ideaId, data) {
+        return request(`/api/ideas/${ideaId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    },
+
+    /**
+     * Archive (soft delete) an idea.
+     * @param {string} ideaId - Idea ID
+     */
+    async archiveIdea(ideaId) {
+        return request(`/api/ideas/${ideaId}`, {
+            method: 'DELETE',
+        });
+    },
 };
 
 export default apiClient;
