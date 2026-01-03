@@ -310,6 +310,51 @@ class ContextFileConcept:
 
             return [self._row_to_context_file(row) for row in results]
 
+    def delete(self, idea_id: UUID, file_id: UUID) -> bool:
+        """
+        Delete a context file.
+
+        Args:
+            idea_id: Parent idea UUID
+            file_id: The file UUID to delete
+
+        Returns:
+            True if deleted, False if not found
+        """
+        # First get the file to know its filename for JJ
+        file = self.get_by_id(file_id)
+        if not file:
+            return False
+
+        # Verify the file belongs to the specified idea
+        if file.idea_id != idea_id:
+            return False
+
+        with get_db() as db:
+            result = db.execute(
+                "DELETE FROM context_files WHERE id = ? AND idea_id = ?",
+                [str(file_id), str(idea_id)],
+            )
+            # DuckDB doesn't return rowcount the same way, so we check if file existed
+            deleted = file is not None
+
+        if deleted:
+            # Remove from JJ repository
+            idea_id_str = str(idea_id)
+            if jj_repository.exists(idea_id_str):
+                file_path = f"context/{file.filename}"
+                jj_repository.delete_file(idea_id_str, file_path)
+                jj_repository.commit(idea_id_str, f"Delete context file: {file.filename}")
+
+            logger.info(
+                "context_file_deleted",
+                idea_id=str(idea_id),
+                file_id=str(file_id),
+                filename=file.filename,
+            )
+
+        return deleted
+
     def _row_to_context_file(self, row) -> ContextFile:
         """Convert a database row to a ContextFile object."""
         # Helper to safely convert to UUID

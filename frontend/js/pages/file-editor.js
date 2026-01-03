@@ -2,7 +2,7 @@
  * File Editor Page
  *
  * 50/50 layout with agent chat (left) and canvas (right).
- * Supports editing kernel files with save/cancel functionality.
+ * Supports editing both kernel files and context files.
  */
 
 import { Canvas } from '../concepts/canvas.js';
@@ -10,7 +10,7 @@ import { Chat } from '../concepts/chat.js';
 import { apiClient } from '../api/client.js';
 
 // Mapping of kernel file types to display names
-const FILE_DISPLAY_NAMES = {
+const KERNEL_FILE_DISPLAY_NAMES = {
     summary: 'Summary.md',
     challenge: 'Challenge.md',
     approach: 'Approach.md',
@@ -19,33 +19,42 @@ const FILE_DISPLAY_NAMES = {
 
 /**
  * File Editor - manages the file editing page
+ * Supports both kernel files and context files.
  */
 export class FileEditor {
     /**
      * Create a FileEditor instance.
      * @param {HTMLElement} container - The container element
      * @param {string} ideaId - The idea ID
-     * @param {string} fileType - The kernel file type
+     * @param {string} fileIdentifier - File type (kernel) or file ID (context)
+     * @param {string} mode - 'kernel' or 'context'
      */
-    constructor(container, ideaId, fileType) {
+    constructor(container, ideaId, fileIdentifier, mode = 'kernel') {
         this.container = container;
         this.ideaId = ideaId;
-        this.fileType = fileType;
-        this.displayName = FILE_DISPLAY_NAMES[fileType] || fileType;
+        this.fileIdentifier = fileIdentifier;
+        this.mode = mode;
+
+        // For kernel files, fileIdentifier is the type; for context, it's the ID
+        this.isKernelFile = mode === 'kernel';
+        this.fileType = this.isKernelFile ? fileIdentifier : null;
+        this.fileId = this.isKernelFile ? null : fileIdentifier;
 
         // State
-        this.kernelFile = null;
+        this.file = null; // Will hold either kernel file or context file data
+        this.displayName = '';
         this.canvas = null;
         this.chat = null;
         this.isLoading = true;
         this.isSaving = false;
+        this.isDeleting = false;
         this.error = null;
 
         this.render();
     }
 
     /**
-     * Load the kernel file data.
+     * Load the file data.
      */
     async load() {
         this.isLoading = true;
@@ -53,7 +62,14 @@ export class FileEditor {
         this.render();
 
         try {
-            this.kernelFile = await apiClient.getKernelFile(this.ideaId, this.fileType);
+            if (this.isKernelFile) {
+                this.file = await apiClient.getKernelFile(this.ideaId, this.fileType);
+                this.displayName = KERNEL_FILE_DISPLAY_NAMES[this.fileType] || this.fileType;
+            } else {
+                this.file = await apiClient.getContextFileById(this.ideaId, this.fileId);
+                this.displayName = this.file.filename;
+            }
+
             this.isLoading = false;
             this.render();
 
@@ -63,7 +79,7 @@ export class FileEditor {
             // Initialize chat component
             this._initChat();
         } catch (error) {
-            console.error('Failed to load kernel file:', error);
+            console.error('Failed to load file:', error);
             this.error = error.message;
             this.isLoading = false;
             this.render();
@@ -79,7 +95,7 @@ export class FileEditor {
         if (!canvasContainer) return;
 
         this.canvas = new Canvas(canvasContainer, {
-            initialContent: this.kernelFile.content,
+            initialContent: this.file.content,
             onChange: (content, isDirty) => {
                 this._updateSaveButtonState(isDirty);
             },
@@ -94,21 +110,33 @@ export class FileEditor {
         const chatContainer = this.container.querySelector('.file-editor-chat');
         if (!chatContainer) return;
 
-        this.chat = new Chat(chatContainer, {
-            ideaId: this.ideaId,
-            fileType: this.fileType,
-            onCompletionChange: (isComplete) => {
-                this._updateCompletionStatus(isComplete);
-            },
-        });
+        if (this.isKernelFile) {
+            // Kernel file: use the file type's agent
+            this.chat = new Chat(chatContainer, {
+                ideaId: this.ideaId,
+                fileType: this.fileType,
+                onCompletionChange: (isComplete) => {
+                    this._updateCompletionStatus(isComplete);
+                },
+            });
+        } else {
+            // Context file: use ContextAgent
+            this.chat = new Chat(chatContainer, {
+                ideaId: this.ideaId,
+                agentType: 'context',
+                contextFileId: this.fileId,
+            });
+        }
     }
 
     /**
-     * Update the completion status display.
+     * Update the completion status display (kernel files only).
      * @private
      * @param {boolean} isComplete
      */
     _updateCompletionStatus(isComplete) {
+        if (!this.isKernelFile) return;
+
         const statusEl = this.container.querySelector('.file-completion-status');
         if (statusEl) {
             statusEl.textContent = isComplete ? '●' : '○';
@@ -116,9 +144,9 @@ export class FileEditor {
             statusEl.title = isComplete ? 'Complete' : 'Incomplete';
         }
 
-        // Update the kernel file state
-        if (this.kernelFile) {
-            this.kernelFile.is_complete = isComplete;
+        // Update the file state
+        if (this.file) {
+            this.file.is_complete = isComplete;
         }
     }
 
@@ -147,7 +175,11 @@ export class FileEditor {
         this._updateSaveButtonState(true);
 
         try {
-            await apiClient.updateKernelFile(this.ideaId, this.fileType, content);
+            if (this.isKernelFile) {
+                await apiClient.updateKernelFile(this.ideaId, this.fileType, content);
+            } else {
+                await apiClient.updateContextFile(this.ideaId, this.fileId, content);
+            }
 
             // Update original content so isDirty becomes false
             this.canvas.load(content);
@@ -155,7 +187,7 @@ export class FileEditor {
             // Navigate back to workspace
             window.location.hash = `#/ideas/${this.ideaId}`;
         } catch (error) {
-            console.error('Failed to save kernel file:', error);
+            console.error('Failed to save file:', error);
             alert(`Failed to save: ${error.message}`);
             this.isSaving = false;
             this._updateSaveButtonState(true);
@@ -174,6 +206,38 @@ export class FileEditor {
 
         // Navigate back to workspace
         window.location.hash = `#/ideas/${this.ideaId}`;
+    }
+
+    /**
+     * Handle delete action (context files only).
+     * @private
+     */
+    async _handleDelete() {
+        if (this.isKernelFile || this.isDeleting) return;
+
+        const confirmed = confirm(`Delete "${this.displayName}"? This cannot be undone.`);
+        if (!confirmed) return;
+
+        this.isDeleting = true;
+        const deleteBtn = this.container.querySelector('.file-editor-delete');
+        if (deleteBtn) {
+            deleteBtn.disabled = true;
+            deleteBtn.textContent = 'Deleting...';
+        }
+
+        try {
+            await apiClient.deleteContextFile(this.ideaId, this.fileId);
+            // Navigate back to workspace
+            window.location.hash = `#/ideas/${this.ideaId}`;
+        } catch (error) {
+            console.error('Failed to delete file:', error);
+            alert(`Failed to delete: ${error.message}`);
+            this.isDeleting = false;
+            if (deleteBtn) {
+                deleteBtn.disabled = false;
+                deleteBtn.textContent = 'Delete';
+            }
+        }
     }
 
     /**
@@ -209,18 +273,44 @@ export class FileEditor {
             return;
         }
 
-        const completionIcon = this.kernelFile.is_complete ? '●' : '○';
-        const completionClass = this.kernelFile.is_complete ? 'complete' : 'incomplete';
+        // Build completion status (kernel files only)
+        let completionHtml = '';
+        if (this.isKernelFile) {
+            const completionIcon = this.file.is_complete ? '●' : '○';
+            const completionClass = this.file.is_complete ? 'complete' : 'incomplete';
+            completionHtml = `
+                <span class="file-completion-status ${completionClass}" title="${this.file.is_complete ? 'Complete' : 'Incomplete'}">
+                    ${completionIcon}
+                </span>
+            `;
+        }
+
+        // Build file badge for context files
+        let badgeHtml = '';
+        if (!this.isKernelFile) {
+            const badgeClass = this.file.created_by_agent ? 'badge-agent' : 'badge-user';
+            const badgeText = this.file.created_by_agent ? 'AI Generated' : 'User Created';
+            badgeHtml = `<span class="file-badge ${badgeClass}">${badgeText}</span>`;
+        }
+
+        // Build delete button (context files only)
+        let deleteButtonHtml = '';
+        if (!this.isKernelFile) {
+            deleteButtonHtml = `
+                <button class="btn btn-danger file-editor-delete">
+                    Delete
+                </button>
+            `;
+        }
 
         this.container.innerHTML = `
             <div class="file-editor">
                 <div class="file-editor-header">
                     <a href="#/ideas/${this.ideaId}" class="back-link">← Back to Idea</a>
                     <div class="file-editor-title">
-                        <h1>${this.displayName}</h1>
-                        <span class="file-completion-status ${completionClass}" title="${this.kernelFile.is_complete ? 'Complete' : 'Incomplete'}">
-                            ${completionIcon}
-                        </span>
+                        <h1>${this._escapeHtml(this.displayName)}</h1>
+                        ${completionHtml}
+                        ${badgeHtml}
                     </div>
                     <div class="file-editor-actions-top">
                         <button class="btn btn-ghost file-editor-history" disabled title="History (coming soon)">
@@ -239,6 +329,8 @@ export class FileEditor {
                 </div>
 
                 <div class="file-editor-footer">
+                    ${deleteButtonHtml}
+                    <div class="file-editor-footer-spacer"></div>
                     <button class="btn btn-ghost file-editor-cancel">
                         Cancel
                     </button>
@@ -267,6 +359,12 @@ export class FileEditor {
         const saveButton = this.container.querySelector('.file-editor-save');
         if (saveButton) {
             saveButton.addEventListener('click', () => this._handleSave());
+        }
+
+        // Delete button (context files only)
+        const deleteButton = this.container.querySelector('.file-editor-delete');
+        if (deleteButton) {
+            deleteButton.addEventListener('click', () => this._handleDelete());
         }
 
         // Keyboard shortcuts

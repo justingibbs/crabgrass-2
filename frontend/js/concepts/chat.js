@@ -26,7 +26,8 @@ export class Chat {
      * @param {Object} options - Configuration options
      * @param {string} options.ideaId - The idea ID
      * @param {string} [options.fileType] - The kernel file type (for kernel file agents)
-     * @param {string} [options.agentType] - The agent type (for idea-level agents like coherence)
+     * @param {string} [options.agentType] - The agent type (for idea-level agents like coherence, context)
+     * @param {string} [options.contextFileId] - The context file ID (for context agent)
      * @param {Function} [options.onCompletionChange] - Callback when completion status changes
      */
     constructor(container, options) {
@@ -34,10 +35,12 @@ export class Chat {
         this.ideaId = options.ideaId;
         this.fileType = options.fileType || null;
         this.agentType = options.agentType || null;
+        this.contextFileId = options.contextFileId || null;
         this.onCompletionChange = options.onCompletionChange;
 
-        // Determine if this is a coherence chat (idea-level) or file-level
+        // Determine chat type
         this.isCoherenceChat = this.agentType === 'coherence';
+        this.isContextChat = this.agentType === 'context';
 
         // State
         this.messages = [];
@@ -71,6 +74,10 @@ export class Chat {
             let response;
             if (this.isCoherenceChat) {
                 response = await apiClient.getCoherenceSessions(this.ideaId);
+            } else if (this.isContextChat) {
+                // Context files don't have a sessions list endpoint yet
+                // Start fresh each time - sessions will be created on first message
+                return;
             } else {
                 response = await apiClient.getSessions(this.ideaId, this.fileType);
             }
@@ -128,6 +135,13 @@ export class Chat {
                     message,
                     this.sessionId
                 );
+            } else if (this.isContextChat) {
+                response = await apiClient.sendContextChatMessage(
+                    this.ideaId,
+                    this.contextFileId,
+                    message,
+                    this.sessionId
+                );
             } else {
                 response = await apiClient.sendChatMessage(
                     this.ideaId,
@@ -148,7 +162,7 @@ export class Chat {
             });
 
             // Notify if completion status changed (only for kernel file agents)
-            if (!this.isCoherenceChat && response.is_complete && this.onCompletionChange) {
+            if (!this.isCoherenceChat && !this.isContextChat && response.is_complete && this.onCompletionChange) {
                 this.onCompletionChange(true);
             }
 

@@ -158,6 +158,7 @@ export class IdeaWorkspace {
 
         return `
             <div class="context-file-card ${isFeedbackTasks ? 'feedback-tasks-card' : ''}"
+                 data-file-id="${this.escapeHtml(file.id)}"
                  data-filename="${this.escapeHtml(file.filename)}"
                  style="cursor: pointer;">
                 <div class="context-file-header">
@@ -173,53 +174,135 @@ export class IdeaWorkspace {
     }
 
     /**
-     * Open a context file in a modal.
+     * Navigate to context file editor.
      * @private
      */
-    async _openContextFile(filename) {
-        try {
-            const file = await apiClient.getContextFile(this.ideaId, filename);
-            this._showContextFileModal(file);
-        } catch (err) {
-            console.error('Failed to load context file:', err);
-            alert(`Failed to load file: ${err.message}`);
-        }
+    _openContextFile(fileId) {
+        window.location.hash = `#/ideas/${this.ideaId}/context/${fileId}`;
     }
 
     /**
-     * Show modal with context file content.
+     * Show the create context file modal.
      * @private
      */
-    _showContextFileModal(file) {
+    _showCreateContextFileModal() {
         // Remove existing modal if any
-        const existingModal = document.getElementById('context-file-modal');
+        const existingModal = document.getElementById('create-context-file-modal');
         if (existingModal) {
             existingModal.remove();
         }
 
         const modal = document.createElement('div');
-        modal.id = 'context-file-modal';
+        modal.id = 'create-context-file-modal';
         modal.className = 'modal-overlay';
         modal.innerHTML = `
-            <div class="modal-content context-file-modal-content">
+            <div class="modal-content create-file-modal-content">
                 <div class="modal-header">
-                    <h2>${this.escapeHtml(file.filename)}</h2>
-                    <button class="modal-close" id="close-context-modal">&times;</button>
+                    <h2>Create Context File</h2>
+                    <button class="modal-close" id="close-create-modal">&times;</button>
                 </div>
                 <div class="modal-body">
-                    <pre class="context-file-content">${this.escapeHtml(file.content)}</pre>
+                    <label for="context-filename-input">Filename</label>
+                    <div class="filename-input-wrapper">
+                        <input
+                            type="text"
+                            id="context-filename-input"
+                            placeholder="my-research-notes"
+                            class="filename-input"
+                            pattern="[a-zA-Z0-9_-]+"
+                        />
+                        <span class="filename-extension">.md</span>
+                    </div>
+                    <p class="filename-hint">Use letters, numbers, hyphens, and underscores only.</p>
+                    <p id="filename-error" class="filename-error" style="display: none;"></p>
+                </div>
+                <div class="modal-footer">
+                    <button class="button button-secondary" id="cancel-create-file">Cancel</button>
+                    <button class="button button-primary" id="confirm-create-file">Create</button>
                 </div>
             </div>
         `;
 
         document.body.appendChild(modal);
 
+        const filenameInput = document.getElementById('context-filename-input');
+        const errorEl = document.getElementById('filename-error');
+        const createBtn = document.getElementById('confirm-create-file');
+
+        // Focus input
+        filenameInput.focus();
+
+        // Validation function
+        const validateFilename = (name) => {
+            if (!name) {
+                return 'Filename is required';
+            }
+            if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+                return 'Only letters, numbers, hyphens, and underscores allowed';
+            }
+            const fullFilename = name + '.md';
+            if (this.contextFiles.some(f => f.filename === fullFilename)) {
+                return 'A file with this name already exists';
+            }
+            return null;
+        };
+
+        // Real-time validation
+        filenameInput.addEventListener('input', () => {
+            const error = validateFilename(filenameInput.value.trim());
+            if (error) {
+                errorEl.textContent = error;
+                errorEl.style.display = 'block';
+                createBtn.disabled = true;
+            } else {
+                errorEl.style.display = 'none';
+                createBtn.disabled = false;
+            }
+        });
+
         // Close handlers
         const closeModal = () => modal.remove();
-        document.getElementById('close-context-modal').addEventListener('click', closeModal);
+        document.getElementById('close-create-modal').addEventListener('click', closeModal);
+        document.getElementById('cancel-create-file').addEventListener('click', closeModal);
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
         });
+
+        // Create handler
+        createBtn.addEventListener('click', async () => {
+            const baseName = filenameInput.value.trim();
+            const error = validateFilename(baseName);
+            if (error) {
+                errorEl.textContent = error;
+                errorEl.style.display = 'block';
+                return;
+            }
+
+            const filename = baseName + '.md';
+            createBtn.disabled = true;
+            createBtn.textContent = 'Creating...';
+
+            try {
+                const newFile = await apiClient.createContextFile(this.ideaId, filename, '');
+                closeModal();
+                // Navigate to the new file's editor
+                window.location.hash = `#/ideas/${this.ideaId}/context/${newFile.id}`;
+            } catch (err) {
+                errorEl.textContent = err.message || 'Failed to create file';
+                errorEl.style.display = 'block';
+                createBtn.disabled = false;
+                createBtn.textContent = 'Create';
+            }
+        });
+
+        // Enter key to submit
+        filenameInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !createBtn.disabled) {
+                createBtn.click();
+            }
+        });
+
+        // Escape to close
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') closeModal();
         }, { once: true });
@@ -346,7 +429,7 @@ export class IdeaWorkspace {
                 <div class="workspace-section">
                     <div class="section-header">
                         <span class="section-title">Context Files</span>
-                        <button class="add-file-button" disabled>+ New File</button>
+                        <button class="add-file-button" id="add-context-file-btn">+ New File</button>
                     </div>
                     ${this._renderContextFiles()}
                 </div>
@@ -385,12 +468,20 @@ export class IdeaWorkspace {
             });
         }
 
-        // Context file card clicks
-        const contextFileCards = document.querySelectorAll('.context-file-card[data-filename]');
+        // Add context file button
+        const addFileBtn = document.getElementById('add-context-file-btn');
+        if (addFileBtn) {
+            addFileBtn.addEventListener('click', () => {
+                this._showCreateContextFileModal();
+            });
+        }
+
+        // Context file card clicks - navigate to editor
+        const contextFileCards = document.querySelectorAll('.context-file-card[data-file-id]');
         contextFileCards.forEach(card => {
             card.addEventListener('click', () => {
-                const filename = card.dataset.filename;
-                this._openContextFile(filename);
+                const fileId = card.dataset.fileId;
+                this._openContextFile(fileId);
             });
         });
     }

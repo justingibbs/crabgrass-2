@@ -139,8 +139,15 @@ const routes = {
     },
 
     '/ideas/:id/kernel/:type': (params, container) => {
-        // File editor with canvas
-        const fileEditor = new FileEditor(container, params.id, params.type);
+        // Kernel file editor with canvas
+        const fileEditor = new FileEditor(container, params.id, params.type, 'kernel');
+        window.crabgrass.fileEditor = fileEditor;
+        fileEditor.load();
+    },
+
+    '/ideas/:id/context/:fileId': (params, container) => {
+        // Context file editor with ContextAgent
+        const fileEditor = new FileEditor(container, params.id, params.fileId, 'context');
         window.crabgrass.fileEditor = fileEditor;
         fileEditor.load();
     },

@@ -249,12 +249,67 @@ export const apiClient = {
     },
 
     /**
-     * Get a context file with content.
+     * Get a context file by ID with content.
      * @param {string} ideaId - Idea ID
-     * @param {string} filename - Filename
+     * @param {string} fileId - File ID
      */
-    async getContextFile(ideaId, filename) {
-        return request(`/api/ideas/${ideaId}/context/${encodeURIComponent(filename)}`);
+    async getContextFileById(ideaId, fileId) {
+        return request(`/api/ideas/${ideaId}/context/${fileId}`);
+    },
+
+    /**
+     * Create a new context file.
+     * @param {string} ideaId - Idea ID
+     * @param {string} filename - Filename (must end in .md)
+     * @param {string} content - Initial content
+     */
+    async createContextFile(ideaId, filename, content = '') {
+        return request(`/api/ideas/${ideaId}/context`, {
+            method: 'POST',
+            body: JSON.stringify({ filename, content }),
+        });
+    },
+
+    /**
+     * Update a context file's content.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileId - File ID
+     * @param {string} content - New content
+     */
+    async updateContextFile(ideaId, fileId, content) {
+        return request(`/api/ideas/${ideaId}/context/${fileId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        });
+    },
+
+    /**
+     * Delete a context file.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileId - File ID
+     */
+    async deleteContextFile(ideaId, fileId) {
+        return request(`/api/ideas/${ideaId}/context/${fileId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
+     * Send a chat message to the ContextAgent.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileId - Context file ID
+     * @param {string} message - The message to send
+     * @param {string} [sessionId] - Optional session ID to continue conversation
+     */
+    async sendContextChatMessage(ideaId, fileId, message, sessionId = null) {
+        const body = { message };
+        if (sessionId) {
+            body.session_id = sessionId;
+        }
+        return request(`/api/ideas/${ideaId}/context/${fileId}/chat`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
     },
 };
 

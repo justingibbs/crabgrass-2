@@ -190,3 +190,82 @@ async def on_kernel_file_marked_complete_async(idea_id, file_type) -> None:
                     idea_id=str(idea_id),
                     error=str(e),
                 )
+
+
+async def on_context_file_created_async(idea_id, context_file_id, user_id) -> None:
+    """
+    sync ContextFileAdded:
+        when ContextFile.create(idea_id, content, filename):
+            → insights = ContextAgent.extract(idea_id, context_file_id)
+            → for insight in insights:
+                → Session.addMessage(idea_id, "agent", insight.suggestion)
+
+    Extracts insights from new context files and adds them to the
+    CoherenceAgent chat session so users see the insights at workspace level.
+    """
+    from ..concepts.agents.context_agent import context_agent
+    from ..concepts.context_file import context_file_concept
+
+    logger.info(
+        "sync_context_file_created",
+        idea_id=str(idea_id),
+        context_file_id=str(context_file_id),
+        user_id=str(user_id),
+    )
+
+    try:
+        # Get the context file
+        context_file = context_file_concept.get_by_id(context_file_id)
+        if not context_file:
+            logger.warning(
+                "context_file_not_found_for_extraction",
+                context_file_id=str(context_file_id),
+            )
+            return
+
+        # Skip extraction for very small files (likely just created with placeholder)
+        if len(context_file.content.strip()) < 50:
+            logger.info(
+                "skipping_extraction_for_small_file",
+                idea_id=str(idea_id),
+                context_file_id=str(context_file_id),
+                content_length=len(context_file.content),
+            )
+            return
+
+        # Extract insights
+        extraction_result = await context_agent.extract(idea_id, context_file_id)
+
+        if extraction_result.insights:
+            # Format insights as a message for the CoherenceAgent chat
+            message = context_agent.format_insights_for_coherence_chat(
+                context_file.filename,
+                extraction_result,
+            )
+
+            # Get or create coherence session for this user
+            coherence_session = session_concept.get_or_create(
+                idea_id=idea_id,
+                user_id=user_id,
+                agent_type="coherence",
+                file_type=None,
+            )
+
+            # Add the insights as an agent message
+            session_concept.add_message(coherence_session.id, "agent", message)
+
+            logger.info(
+                "context_insights_added_to_coherence_chat",
+                idea_id=str(idea_id),
+                context_file_id=str(context_file_id),
+                insight_count=len(extraction_result.insights),
+                session_id=str(coherence_session.id),
+            )
+
+    except Exception as e:
+        logger.error(
+            "context_file_extraction_failed",
+            idea_id=str(idea_id),
+            context_file_id=str(context_file_id),
+            error=str(e),
+        )

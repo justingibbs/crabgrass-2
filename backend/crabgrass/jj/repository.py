@@ -179,6 +179,35 @@ class JJRepository:
 
         return full_path.read_text(encoding="utf-8")
 
+    def delete_file(self, idea_id: str, file_path: str) -> bool:
+        """
+        Delete a file from the repository.
+
+        JJ automatically tracks the deletion.
+
+        Args:
+            idea_id: The idea ID
+            file_path: Relative path within the repo
+
+        Returns:
+            True if file was deleted, False if not found
+        """
+        repo_path = self._get_repo_path(idea_id)
+        full_path = repo_path / file_path
+
+        if not full_path.exists():
+            return False
+
+        full_path.unlink()
+
+        logger.debug(
+            "jj_file_deleted",
+            idea_id=idea_id,
+            file_path=file_path,
+        )
+
+        return True
+
     def commit(self, idea_id: str, message: str) -> str:
         """
         Commit current changes with a message.

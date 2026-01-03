@@ -242,12 +242,12 @@ class TestContextFilesListEndpoint:
 
 
 class TestContextFileGetEndpoint:
-    """Tests for GET /api/ideas/{id}/context/{filename}."""
+    """Tests for GET /api/ideas/{id}/context/{file_id}."""
 
     def test_get_context_file(self, idea_id, sally_cookie):
         """Get a context file returns content."""
         # Create a context file
-        context_file_concept.create(
+        context_file = context_file_concept.create(
             idea_id=UUID(idea_id),
             filename="notes.md",
             content="# Notes\n\nSome content here.",
@@ -255,7 +255,7 @@ class TestContextFileGetEndpoint:
         )
 
         response = client.get(
-            f"/api/ideas/{idea_id}/context/notes.md",
+            f"/api/ideas/{idea_id}/context/{context_file.id}",
             cookies=sally_cookie,
         )
 
@@ -268,18 +268,27 @@ class TestContextFileGetEndpoint:
 
     def test_get_nonexistent_file_returns_404(self, idea_id, sally_cookie):
         """Get nonexistent file returns 404."""
+        fake_file_id = "99999999-9999-9999-9999-999999999999"
         response = client.get(
-            f"/api/ideas/{idea_id}/context/nonexistent.md",
+            f"/api/ideas/{idea_id}/context/{fake_file_id}",
             cookies=sally_cookie,
         )
 
         assert response.status_code == 404
 
-    def test_get_context_file_invalid_idea(self, sally_cookie):
+    def test_get_context_file_invalid_idea(self, idea_id, sally_cookie):
         """Get context file with invalid idea returns 404."""
-        fake_id = "99999999-9999-9999-9999-999999999999"
+        # Create a context file first
+        context_file = context_file_concept.create(
+            idea_id=UUID(idea_id),
+            filename="notes.md",
+            content="# Notes",
+            user_id=SALLY_USER_ID,
+        )
+
+        fake_idea_id = "99999999-9999-9999-9999-999999999999"
         response = client.get(
-            f"/api/ideas/{fake_id}/context/notes.md",
+            f"/api/ideas/{fake_idea_id}/context/{context_file.id}",
             cookies=sally_cookie,
         )
 

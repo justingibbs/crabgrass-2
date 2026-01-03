@@ -8,7 +8,7 @@ import structlog
 from .config import settings
 from .db.connection import get_connection, close_connection
 from .db.migrations import run_migrations
-from .api.routes import auth, ideas, agent, coherence
+from .api.routes import auth, ideas, agent, coherence, files
 from .api import sse
 
 logger = structlog.get_logger()
@@ -52,6 +52,7 @@ app.include_router(auth.router)
 app.include_router(ideas.router)
 app.include_router(agent.router)
 app.include_router(coherence.router)
+app.include_router(files.router)
 app.include_router(sse.router)
 
 

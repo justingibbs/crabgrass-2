@@ -201,6 +201,14 @@ class SessionConcept:
 
             return [self._row_to_message(row) for row in results]
 
+    def update_title(self, session_id: UUID, title: str) -> None:
+        """Update a session's title."""
+        with get_db() as db:
+            db.execute(
+                "UPDATE sessions SET title = ? WHERE id = ?",
+                [title, str(session_id)],
+            )
+
     def _row_to_session(self, row) -> Session:
         """Convert a database row to a Session object."""
         return Session(

@@ -84,35 +84,6 @@ class CoherenceEvaluateResponse(BaseModel):
     kernel_complete_count: int
 
 
-class ContextFileResponse(BaseModel):
-    """Response for a context file."""
-
-    id: str
-    filename: str
-    size_bytes: int
-    created_by_agent: bool
-    created_at: str
-    updated_at: str
-
-
-class ContextFileDetailResponse(BaseModel):
-    """Response for a single context file with content."""
-
-    id: str
-    filename: str
-    content: str
-    size_bytes: int
-    created_by_agent: bool
-    created_at: str
-    updated_at: str
-
-
-class ContextFilesListResponse(BaseModel):
-    """Response for list of context files."""
-
-    files: list[ContextFileResponse]
-
-
 # --- Routes ---
 
 
@@ -231,73 +202,6 @@ async def evaluate_coherence(
         error_detail = f"{type(e).__name__}: {str(e)}"
         logger.error("coherence_evaluate_error", error=error_detail, traceback=traceback.format_exc())
         raise HTTPException(status_code=500, detail=error_detail)
-
-
-@router.get("/{idea_id}/context")
-async def list_context_files(
-    idea_id: UUID,
-    crabgrass_dev_user: Optional[str] = Cookie(default=None),
-):
-    """List all context files for an idea."""
-    user_id, org_id = get_current_user_info(crabgrass_dev_user)
-
-    # Verify idea exists and user has access
-    idea = idea_concept.get(idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
-
-    if idea.org_id != org_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    # Get context files
-    files = context_file_concept.list(idea_id)
-
-    return ContextFilesListResponse(
-        files=[
-            ContextFileResponse(
-                id=str(f.id),
-                filename=f.filename,
-                size_bytes=f.size_bytes,
-                created_by_agent=f.created_by_agent,
-                created_at=f.created_at.isoformat(),
-                updated_at=f.updated_at.isoformat(),
-            )
-            for f in files
-        ]
-    )
-
-
-@router.get("/{idea_id}/context/{filename}")
-async def get_context_file(
-    idea_id: UUID,
-    filename: str,
-    crabgrass_dev_user: Optional[str] = Cookie(default=None),
-):
-    """Get a single context file with content."""
-    user_id, org_id = get_current_user_info(crabgrass_dev_user)
-
-    # Verify idea exists and user has access
-    idea = idea_concept.get(idea_id)
-    if not idea:
-        raise HTTPException(status_code=404, detail="Idea not found")
-
-    if idea.org_id != org_id:
-        raise HTTPException(status_code=403, detail="Access denied")
-
-    # Get context file
-    file = context_file_concept.get(idea_id, filename)
-    if not file:
-        raise HTTPException(status_code=404, detail="Context file not found")
-
-    return ContextFileDetailResponse(
-        id=str(file.id),
-        filename=file.filename,
-        content=file.content,
-        size_bytes=file.size_bytes,
-        created_by_agent=file.created_by_agent,
-        created_at=file.created_at.isoformat(),
-        updated_at=file.updated_at.isoformat(),
-    )
 
 
 @router.get("/{idea_id}/coherence/sessions")
