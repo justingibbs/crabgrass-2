@@ -962,3 +962,186 @@
     background: var(--bg-hover);
     border-color: var(--text-muted);
 }
+
+/* =================================
+   Chat Component Styles (Slice 5)
+   ================================= */
+
+.chat {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.chat-header {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.chat-agent-name {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: var(--font-size-sm);
+}
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--spacing-md);
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.chat-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    text-align: center;
+    color: var(--text-muted);
+    padding: var(--spacing-lg);
+}
+
+.chat-empty p {
+    margin: 0;
+}
+
+.chat-empty p:first-child {
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.chat-hint {
+    font-size: var(--font-size-sm);
+}
+
+.chat-message {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.chat-message-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.chat-message-sender {
+    font-weight: 500;
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+}
+
+.chat-message-time {
+    font-size: var(--font-size-xs, 0.75rem);
+    color: var(--text-muted);
+}
+
+.chat-message-content {
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius-lg);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+}
+
+.chat-message-user .chat-message-content {
+    background: var(--color-primary);
+    color: white;
+    margin-left: var(--spacing-xl);
+    align-self: flex-end;
+}
+
+.chat-message-agent .chat-message-content {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    margin-right: var(--spacing-xl);
+}
+
+.chat-message-agent .chat-message-content code {
+    background: var(--bg-secondary);
+    padding: 0.1em 0.3em;
+    border-radius: var(--border-radius);
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.9em;
+}
+
+.chat-loading .chat-message-content {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+.chat-typing {
+    display: inline-block;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+.chat-error {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-error-bg, #fef2f2);
+    border: 1px solid var(--color-error, #dc2626);
+    border-radius: var(--border-radius);
+    color: var(--color-error, #dc2626);
+    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+}
+
+.chat-error p {
+    margin: 0;
+}
+
+.chat-retry {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    font-size: var(--font-size-xs, 0.75rem);
+}
+
+.chat-input-container {
+    display: flex;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-primary);
+}
+
+.chat-input {
+    flex: 1;
+    padding: var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+    font-family: inherit;
+    resize: none;
+    line-height: 1.4;
+    color: var(--text-primary);
+    background: var(--bg-primary);
+}
+
+.chat-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.chat-input::placeholder {
+    color: var(--text-muted);
+}
+
+.chat-input:disabled {
+    background: var(--bg-tertiary);
+    cursor: not-allowed;
+}
+
+.chat-send {
+    align-self: flex-end;
+    padding: var(--spacing-sm) var(--spacing-md);
+}

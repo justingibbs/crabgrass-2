@@ -7,11 +7,13 @@ without coupling them. They are the ONLY place concepts interact.
 Each function is named `on_<event>` to match the trigger.
 """
 
+import asyncio
 import structlog
 
 from ..concepts.idea import Idea, IdeaConcept
 from ..concepts.kernel_file import KernelFileConcept
 from ..concepts.version import version_concept
+from ..concepts.session import session_concept
 
 logger = structlog.get_logger()
 
@@ -75,7 +77,7 @@ def on_kernel_file_updated(idea_id, file_type, content) -> None:
         when KernelFile.update():
             → Version.commit()
             → Embedding.generate()
-            → Agent.evaluate()
+            → Agent.evaluate() (async, called separately)
     """
     logger.info(
         "sync_kernel_file_updated",
@@ -91,8 +93,38 @@ def on_kernel_file_updated(idea_id, file_type, content) -> None:
 
     # TODO Slice 10: embedding = Embedding.generate(content)
     # TODO Slice 10: kernel_file_concept.set_embedding(idea_id, file_type, embedding)
-    # TODO Slice 5: agent = get_agent_for_file_type(file_type)
-    # TODO Slice 5: agent.evaluate(idea_id, content)
+    # Note: Agent evaluation is async and called separately via on_kernel_file_updated_async
+
+
+async def on_kernel_file_updated_async(idea_id, file_type, content) -> None:
+    """
+    Async portion of KernelFileUpdated sync.
+    Triggers agent evaluation which may mark the file complete.
+    """
+    from ..concepts.agents import get_agent_for_file_type
+
+    try:
+        agent = get_agent_for_file_type(file_type)
+        evaluation = await agent.evaluate(idea_id, content)
+
+        logger.info(
+            "agent_evaluation_complete",
+            idea_id=str(idea_id),
+            file_type=file_type,
+            is_complete=evaluation.is_complete,
+        )
+
+        # If newly complete, trigger the completion sync
+        if evaluation.is_complete:
+            await on_kernel_file_marked_complete_async(idea_id, file_type)
+
+    except ValueError:
+        # No agent for this file type yet (e.g., summary, approach, steps in Slice 5)
+        logger.debug(
+            "no_agent_for_file_type",
+            idea_id=str(idea_id),
+            file_type=file_type,
+        )
 
 
 def on_kernel_file_marked_complete(idea_id, file_type) -> None:
@@ -117,3 +149,27 @@ def on_kernel_file_marked_complete(idea_id, file_type) -> None:
     )
 
     # TODO Slice 7: if count >= 2: CoherenceAgent.evaluate(idea_id)
+
+
+async def on_kernel_file_marked_complete_async(idea_id, file_type) -> None:
+    """
+    Async portion of KernelFileMarkedComplete sync.
+    Emits SSE event for completion change.
+    """
+    from ..api.sse import emit_completion_changed
+
+    # Run the sync version first
+    on_kernel_file_marked_complete(idea_id, file_type)
+
+    # Get the updated completion count
+    idea = idea_concept.get(idea_id)
+    if idea:
+        # Emit SSE event
+        await emit_completion_changed(
+            idea_id=idea_id,
+            file_type=file_type,
+            is_complete=True,
+            total_complete=idea.kernel_completion,
+        )
+
+    # TODO Slice 7: if idea.kernel_completion >= 2: await CoherenceAgent.evaluate(idea_id)

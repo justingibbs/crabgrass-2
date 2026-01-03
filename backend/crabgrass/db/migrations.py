@@ -148,6 +148,31 @@ def _create_schema(conn) -> None:
         )
     """)
 
+    # Sessions (conversation threads with agents)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS sessions (
+            id UUID PRIMARY KEY,
+            idea_id UUID REFERENCES ideas(id),
+            user_id UUID REFERENCES users(id),
+            agent_type VARCHAR NOT NULL,
+            file_type VARCHAR,
+            title VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_active TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Session messages
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS session_messages (
+            id UUID PRIMARY KEY,
+            session_id UUID REFERENCES sessions(id),
+            role VARCHAR NOT NULL,
+            content TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
     logger.info("schema_created")
 
 

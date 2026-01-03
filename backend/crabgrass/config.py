@@ -3,12 +3,17 @@
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Find .env file relative to this file's location (project_root/.env)
+_this_file = Path(__file__).resolve()
+_project_root = _this_file.parent.parent.parent  # config.py -> crabgrass -> backend -> project_root
+_env_file = _project_root / ".env"
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(_env_file),
         env_file_encoding="utf-8",
     )
 
@@ -18,8 +23,8 @@ class Settings(BaseSettings):
     # File storage for JJ repositories
     storage_root: Path = Path("./data/ideas")
 
-    # Gemini API
-    gemini_api_key: str = ""
+    # Gemini API (matches GOOGLE_API_KEY in .env)
+    google_api_key: str = ""
 
     # Server
     host: str = "0.0.0.0"

@@ -162,6 +162,44 @@ export const apiClient = {
     async getKernelFileHistory(ideaId, fileType, limit = 50) {
         return request(`/api/ideas/${ideaId}/kernel/${fileType}/history?limit=${limit}`);
     },
+
+    // --- Agent Chat ---
+
+    /**
+     * Send a chat message to an agent.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileType - File type (determines which agent)
+     * @param {string} message - The message to send
+     * @param {string} [sessionId] - Optional session ID to continue conversation
+     */
+    async sendChatMessage(ideaId, fileType, message, sessionId = null) {
+        const body = { message };
+        if (sessionId) {
+            body.session_id = sessionId;
+        }
+        return request(`/api/ideas/${ideaId}/kernel/${fileType}/chat`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    },
+
+    /**
+     * Get list of sessions for a kernel file.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileType - File type
+     */
+    async getSessions(ideaId, fileType) {
+        return request(`/api/ideas/${ideaId}/kernel/${fileType}/sessions`);
+    },
+
+    /**
+     * Get a session with its message history.
+     * @param {string} ideaId - Idea ID
+     * @param {string} sessionId - Session ID
+     */
+    async getSessionWithMessages(ideaId, sessionId) {
+        return request(`/api/ideas/${ideaId}/sessions/${sessionId}`);
+    },
 };
 
 export default apiClient;

@@ -72,9 +72,12 @@ frontend/
 ```bash
 # Backend
 uv run uvicorn crabgrass.main:app --reload
+uv run uvicorn crabgrass.main:app --reload --port 8000
 
 # Frontend (dev server)
-npx serve frontend
+python -m http.server 3000
+
+-- Old `npx serve frontend`
 
 # Tests
 uv run pytest

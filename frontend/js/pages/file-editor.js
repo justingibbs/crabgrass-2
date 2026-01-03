@@ -1,11 +1,12 @@
 /**
  * File Editor Page
  *
- * 50/50 layout with chat placeholder (left) and canvas (right).
+ * 50/50 layout with agent chat (left) and canvas (right).
  * Supports editing kernel files with save/cancel functionality.
  */
 
 import { Canvas } from '../concepts/canvas.js';
+import { Chat } from '../concepts/chat.js';
 import { apiClient } from '../api/client.js';
 
 // Mapping of kernel file types to display names
@@ -35,6 +36,7 @@ export class FileEditor {
         // State
         this.kernelFile = null;
         this.canvas = null;
+        this.chat = null;
         this.isLoading = true;
         this.isSaving = false;
         this.error = null;
@@ -57,6 +59,9 @@ export class FileEditor {
 
             // Initialize canvas with content
             this._initCanvas();
+
+            // Initialize chat component
+            this._initChat();
         } catch (error) {
             console.error('Failed to load kernel file:', error);
             this.error = error.message;
@@ -79,6 +84,42 @@ export class FileEditor {
                 this._updateSaveButtonState(isDirty);
             },
         });
+    }
+
+    /**
+     * Initialize the chat component.
+     * @private
+     */
+    _initChat() {
+        const chatContainer = this.container.querySelector('.file-editor-chat');
+        if (!chatContainer) return;
+
+        this.chat = new Chat(chatContainer, {
+            ideaId: this.ideaId,
+            fileType: this.fileType,
+            onCompletionChange: (isComplete) => {
+                this._updateCompletionStatus(isComplete);
+            },
+        });
+    }
+
+    /**
+     * Update the completion status display.
+     * @private
+     * @param {boolean} isComplete
+     */
+    _updateCompletionStatus(isComplete) {
+        const statusEl = this.container.querySelector('.file-completion-status');
+        if (statusEl) {
+            statusEl.textContent = isComplete ? '●' : '○';
+            statusEl.className = `file-completion-status ${isComplete ? 'complete' : 'incomplete'}`;
+            statusEl.title = isComplete ? 'Complete' : 'Incomplete';
+        }
+
+        // Update the kernel file state
+        if (this.kernelFile) {
+            this.kernelFile.is_complete = isComplete;
+        }
     }
 
     /**
@@ -190,11 +231,7 @@ export class FileEditor {
 
                 <div class="file-editor-body">
                     <div class="file-editor-chat">
-                        <div class="chat-placeholder">
-                            <div class="chat-placeholder-icon">💬</div>
-                            <h3>Agent Chat</h3>
-                            <p>AI coaching will be available in Slice 5.</p>
-                        </div>
+                        <!-- Chat component will be mounted here -->
                     </div>
                     <div class="file-editor-canvas">
                         <!-- Canvas will be mounted here -->

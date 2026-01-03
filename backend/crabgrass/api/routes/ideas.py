@@ -9,7 +9,7 @@ import structlog
 
 from ...concepts.idea import IdeaConcept
 from ...concepts.kernel_file import KernelFileConcept
-from ...sync.synchronizations import on_idea_created, on_kernel_file_updated
+from ...sync.synchronizations import on_idea_created, on_kernel_file_updated, on_kernel_file_updated_async
 from ...concepts.version import version_concept
 from ...db.connection import get_db
 from ...db.migrations import SALLY_USER_ID
@@ -386,11 +386,18 @@ async def update_kernel_file(
     # Trigger synchronization (commits to JJ, updates idea timestamp)
     on_kernel_file_updated(idea_id, file_type, request.content)
 
+    # Trigger async agent evaluation (may mark file complete)
+    await on_kernel_file_updated_async(idea_id, file_type, request.content)
+
+    # Reload kernel file to get updated is_complete status
+    kernel_file = kernel_file_concept.get(idea_id, file_type)
+
     logger.info(
         "kernel_file_updated",
         idea_id=str(idea_id),
         file_type=file_type,
         user_id=str(user_id),
+        is_complete=kernel_file.is_complete if kernel_file else False,
     )
 
     return UpdateKernelFileResponse(
