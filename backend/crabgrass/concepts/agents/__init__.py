@@ -4,6 +4,7 @@ from .challenge_agent import ChallengeAgent, challenge_agent
 from .summary_agent import SummaryAgent, summary_agent
 from .approach_agent import ApproachAgent, approach_agent
 from .steps_agent import StepsAgent, steps_agent
+from .coherence_agent import CoherenceAgent, coherence_agent
 
 # Map file types to their agents
 FILE_TYPE_TO_AGENT = {
@@ -19,8 +20,7 @@ AGENT_TYPE_TO_AGENT = {
     "challenge": challenge_agent,
     "approach": approach_agent,
     "steps": steps_agent,
-    # Slice 7 will add:
-    # "coherence": coherence_agent,
+    "coherence": coherence_agent,
     # Slice 8 will add:
     # "context": context_agent,
     # Slice 9 will add:
@@ -53,6 +53,8 @@ __all__ = [
     "approach_agent",
     "StepsAgent",
     "steps_agent",
+    "CoherenceAgent",
+    "coherence_agent",
     "get_agent_for_file_type",
     "get_agent_by_type",
 ]

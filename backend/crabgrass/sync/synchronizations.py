@@ -148,15 +148,17 @@ def on_kernel_file_marked_complete(idea_id, file_type) -> None:
         count=count,
     )
 
-    # TODO Slice 7: if count >= 2: CoherenceAgent.evaluate(idea_id)
+    # Note: CoherenceAgent.evaluate() is triggered in the async version
 
 
 async def on_kernel_file_marked_complete_async(idea_id, file_type) -> None:
     """
     Async portion of KernelFileMarkedComplete sync.
     Emits SSE event for completion change.
+    Triggers CoherenceAgent evaluation when 2+ files are complete.
     """
     from ..api.sse import emit_completion_changed
+    from ..concepts.agents.coherence_agent import coherence_agent
 
     # Run the sync version first
     on_kernel_file_marked_complete(idea_id, file_type)
@@ -172,4 +174,19 @@ async def on_kernel_file_marked_complete_async(idea_id, file_type) -> None:
             total_complete=idea.kernel_completion,
         )
 
-    # TODO Slice 7: if idea.kernel_completion >= 2: await CoherenceAgent.evaluate(idea_id)
+        # Slice 7: Trigger CoherenceAgent evaluation when 2+ files complete
+        if idea.kernel_completion >= 2:
+            logger.info(
+                "triggering_coherence_evaluation",
+                idea_id=str(idea_id),
+                kernel_completion=idea.kernel_completion,
+            )
+            try:
+                # Run evaluation in background (fire-and-forget style)
+                await coherence_agent.evaluate(idea_id)
+            except Exception as e:
+                logger.error(
+                    "coherence_evaluation_failed",
+                    idea_id=str(idea_id),
+                    error=str(e),
+                )

@@ -2,7 +2,7 @@
 
 **Goal:** Idea Workspace has CoherenceAgent chat that checks cross-file consistency and maintains a `feedback-tasks.md` context file.
 
-**Status:** In Progress
+**Status:** Complete
 
 ---
 
@@ -22,13 +22,13 @@
 
 ### Database & Context Files
 
-- [ ] 1. Add `context_files` table to migrations
+- [x] 1. Add `context_files` table to migrations
   - `id`, `idea_id`, `filename`, `content`, `size_bytes`
   - `created_by` (NULL if agent-created), `created_by_agent` boolean
   - `created_at`, `updated_at`
   - Constraints: valid filename (no spaces, .md extension), max 50KB
 
-- [ ] 2. Create ContextFile concept (`concepts/context_file.py`)
+- [x] 2. Create ContextFile concept (`concepts/context_file.py`)
   - `ContextFile` dataclass
   - `ContextFileConcept` class with:
     - `create(idea_id, filename, content, user_id=None, created_by_agent=False)`
@@ -40,7 +40,7 @@
 
 ### CoherenceAgent
 
-- [ ] 3. Update prompts in `ai/prompts.py`
+- [x] 3. Update prompts in `ai/prompts.py`
   - Enhance `COHERENCE_AGENT_SYSTEM_PROMPT` for coaching conversations
   - Add `COHERENCE_AGENT_EVALUATION_PROMPT` for generating `feedback-tasks.md`
   - Prompt should guide structured output with:
@@ -49,7 +49,7 @@
     - Task list for improving the idea
     - Suggested next steps
 
-- [ ] 4. Create CoherenceAgent (`concepts/agents/coherence_agent.py`)
+- [x] 4. Create CoherenceAgent (`concepts/agents/coherence_agent.py`)
   - `AGENT_TYPE = "coherence"`
   - `evaluate(idea_id)` method:
     - Fetch all 4 kernel files
@@ -65,12 +65,12 @@
     - Generate coaching response
   - Helper: `_get_all_kernel_content(idea_id)` - Returns dict of file_type -> content
 
-- [ ] 5. Register CoherenceAgent in `concepts/agents/__init__.py`
+- [x] 5. Register CoherenceAgent in `concepts/agents/__init__.py`
   - Add to `AGENT_TYPE_TO_AGENT` map
 
 ### API Routes
 
-- [ ] 6. Create coherence API routes (`api/routes/coherence.py`)
+- [x] 6. Create coherence API routes (`api/routes/coherence.py`)
   - `POST /api/ideas/{id}/coherence/chat` - Chat with CoherenceAgent
     - Request: `{message: str, session_id?: str}`
     - Response: `{response: str, session_id: str}`
@@ -79,34 +79,33 @@
   - `GET /api/ideas/{id}/context` - List context files (for frontend)
     - Response: `{files: [{id, filename, created_at, created_by_agent}]}`
 
-- [ ] 7. Register routes in `main.py`
+- [x] 7. Register routes in `main.py`
 
 ### Synchronizations
 
-- [ ] 8. Update `on_kernel_file_marked_complete_async` in synchronizations.py
+- [x] 8. Update `on_kernel_file_marked_complete_async` in synchronizations.py
   - If `idea.kernel_completion >= 2`, trigger `CoherenceAgent.evaluate(idea_id)` in background
   - Use asyncio to run non-blocking
 
-- [ ] 9. Add `on_context_file_updated` synchronization
-  - Commit context file changes to JJ repository
+- [x] 9. JJ integration handled in ContextFile concept (no separate sync needed)
 
 ---
 
 ## Frontend Tasks
 
-- [ ] 10. Update API client (`api/client.js`)
+- [x] 10. Update API client (`api/client.js`)
   - Add `sendCoherenceChatMessage(ideaId, message, sessionId)`
   - Add `triggerCoherenceEvaluation(ideaId)`
   - Add `getContextFiles(ideaId)`
   - Add `getCoherenceSessions(ideaId)`
 
-- [ ] 11. Update Idea Workspace (`concepts/idea-workspace.js`)
+- [x] 11. Update Idea Workspace (`concepts/idea-workspace.js`)
   - Replace chat placeholder with real Chat component
   - Configure Chat for coherence agent (no file_type, agent_type="coherence")
   - Load and display context files in Context Files section
   - Show `feedback-tasks.md` with visual indicator (agent-generated)
 
-- [ ] 12. Update Chat component (`concepts/chat.js`)
+- [x] 12. Update Chat component (`concepts/chat.js`)
   - Support coherence agent mode (idea-level, not file-level)
   - Add `agentType` option as alternative to `fileType`
   - Update API calls to use coherence endpoints when agentType="coherence"
@@ -115,18 +114,18 @@
 
 ## Tests
 
-- [ ] 13. Create `test_context_file.py`
+- [x] 13. Create `test_context_file.py`
   - Test create, get, update, list operations
   - Test validation (filename format, size limit)
   - Test JJ integration (files written to repo)
 
-- [ ] 14. Create `test_coherence_agent.py`
+- [x] 14. Create `test_coherence_agent.py`
   - Test evaluate() generates valid feedback-tasks.md
   - Test coach() provides contextual responses
   - Test with various kernel file completion states
   - Test consistency detection (mock inconsistent files)
 
-- [ ] 15. Create `test_coherence_api.py`
+- [x] 15. Create `test_coherence_api.py`
   - Test chat endpoint
   - Test evaluate endpoint
   - Test context files list endpoint

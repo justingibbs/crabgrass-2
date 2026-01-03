@@ -25,21 +25,26 @@ export class Chat {
      * @param {HTMLElement} container - The container element
      * @param {Object} options - Configuration options
      * @param {string} options.ideaId - The idea ID
-     * @param {string} options.fileType - The kernel file type
+     * @param {string} [options.fileType] - The kernel file type (for kernel file agents)
+     * @param {string} [options.agentType] - The agent type (for idea-level agents like coherence)
      * @param {Function} [options.onCompletionChange] - Callback when completion status changes
      */
     constructor(container, options) {
         this.container = container;
         this.ideaId = options.ideaId;
-        this.fileType = options.fileType;
+        this.fileType = options.fileType || null;
+        this.agentType = options.agentType || null;
         this.onCompletionChange = options.onCompletionChange;
+
+        // Determine if this is a coherence chat (idea-level) or file-level
+        this.isCoherenceChat = this.agentType === 'coherence';
 
         // State
         this.messages = [];
         this.sessionId = null;
         this.isLoading = false;
         this.error = null;
-        this.agentName = AGENT_NAMES[this.fileType] || 'Agent';
+        this.agentName = AGENT_NAMES[this.agentType || this.fileType] || 'Agent';
 
         this.render();
         this._loadExistingSession();
@@ -63,7 +68,12 @@ export class Chat {
      */
     async _loadExistingSession() {
         try {
-            const response = await apiClient.getSessions(this.ideaId, this.fileType);
+            let response;
+            if (this.isCoherenceChat) {
+                response = await apiClient.getCoherenceSessions(this.ideaId);
+            } else {
+                response = await apiClient.getSessions(this.ideaId, this.fileType);
+            }
             if (response.sessions && response.sessions.length > 0) {
                 // Load the most recent session
                 const latestSession = response.sessions[0];
@@ -111,12 +121,21 @@ export class Chat {
         this.render();
 
         try {
-            const response = await apiClient.sendChatMessage(
-                this.ideaId,
-                this.fileType,
-                message,
-                this.sessionId
-            );
+            let response;
+            if (this.isCoherenceChat) {
+                response = await apiClient.sendCoherenceChatMessage(
+                    this.ideaId,
+                    message,
+                    this.sessionId
+                );
+            } else {
+                response = await apiClient.sendChatMessage(
+                    this.ideaId,
+                    this.fileType,
+                    message,
+                    this.sessionId
+                );
+            }
 
             // Store session ID for future messages
             this.sessionId = response.session_id;
@@ -128,8 +147,8 @@ export class Chat {
                 timestamp: new Date(),
             });
 
-            // Notify if completion status changed
-            if (response.is_complete && this.onCompletionChange) {
+            // Notify if completion status changed (only for kernel file agents)
+            if (!this.isCoherenceChat && response.is_complete && this.onCompletionChange) {
                 this.onCompletionChange(true);
             }
 

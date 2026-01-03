@@ -200,6 +200,62 @@ export const apiClient = {
     async getSessionWithMessages(ideaId, sessionId) {
         return request(`/api/ideas/${ideaId}/sessions/${sessionId}`);
     },
+
+    // --- Coherence Agent ---
+
+    /**
+     * Send a chat message to the CoherenceAgent.
+     * @param {string} ideaId - Idea ID
+     * @param {string} message - The message to send
+     * @param {string} [sessionId] - Optional session ID to continue conversation
+     */
+    async sendCoherenceChatMessage(ideaId, message, sessionId = null) {
+        const body = { message };
+        if (sessionId) {
+            body.session_id = sessionId;
+        }
+        return request(`/api/ideas/${ideaId}/coherence/chat`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    },
+
+    /**
+     * Trigger a coherence evaluation.
+     * @param {string} ideaId - Idea ID
+     */
+    async triggerCoherenceEvaluation(ideaId) {
+        return request(`/api/ideas/${ideaId}/coherence/evaluate`, {
+            method: 'POST',
+        });
+    },
+
+    /**
+     * Get list of coherence sessions for an idea.
+     * @param {string} ideaId - Idea ID
+     */
+    async getCoherenceSessions(ideaId) {
+        return request(`/api/ideas/${ideaId}/coherence/sessions`);
+    },
+
+    // --- Context Files ---
+
+    /**
+     * Get list of context files for an idea.
+     * @param {string} ideaId - Idea ID
+     */
+    async getContextFiles(ideaId) {
+        return request(`/api/ideas/${ideaId}/context`);
+    },
+
+    /**
+     * Get a context file with content.
+     * @param {string} ideaId - Idea ID
+     * @param {string} filename - Filename
+     */
+    async getContextFile(ideaId, filename) {
+        return request(`/api/ideas/${ideaId}/context/${encodeURIComponent(filename)}`);
+    },
 };
 
 export default apiClient;

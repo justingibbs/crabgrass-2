@@ -53,6 +53,8 @@ def run_migrations() -> None:
 
     if "organizations" in table_names:
         logger.info("migrations_already_run", tables=list(table_names))
+        # Run incremental migrations for new tables
+        _run_incremental_migrations(conn, table_names)
         return
 
     logger.info("running_migrations")
@@ -64,6 +66,28 @@ def run_migrations() -> None:
     _seed_dev_data(conn)
 
     logger.info("migrations_complete")
+
+
+def _run_incremental_migrations(conn, existing_tables: set) -> None:
+    """Run incremental migrations for tables added after initial setup."""
+
+    # Slice 7: Add context_files table
+    if "context_files" not in existing_tables:
+        logger.info("adding_context_files_table")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS context_files (
+                id UUID PRIMARY KEY,
+                idea_id UUID REFERENCES ideas(id),
+                filename VARCHAR NOT NULL,
+                content TEXT,
+                size_bytes INTEGER DEFAULT 0,
+                created_by UUID REFERENCES users(id),
+                created_by_agent BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(idea_id, filename)
+            )
+        """)
 
 
 def _create_schema(conn) -> None:
@@ -170,6 +194,22 @@ def _create_schema(conn) -> None:
             role VARCHAR NOT NULL,
             content TEXT NOT NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Context files (supporting materials for ideas)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS context_files (
+            id UUID PRIMARY KEY,
+            idea_id UUID REFERENCES ideas(id),
+            filename VARCHAR NOT NULL,
+            content TEXT,
+            size_bytes INTEGER DEFAULT 0,
+            created_by UUID REFERENCES users(id),
+            created_by_agent BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(idea_id, filename)
         )
     """)
 
