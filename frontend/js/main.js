@@ -6,6 +6,7 @@
 
 import { UserSwitcher } from './concepts/user-switcher.js';
 import { IdeaList } from './concepts/idea-list.js';
+import { IdeaWorkspace } from './concepts/idea-workspace.js';
 
 /**
  * Simple hash-based router.
@@ -105,6 +106,20 @@ class Router {
 }
 
 /**
+ * Get display name for kernel file type.
+ * @param {string} fileType - Internal file type
+ */
+function getFileDisplayName(fileType) {
+    const names = {
+        summary: 'Summary.md',
+        challenge: 'Challenge.md',
+        approach: 'Approach.md',
+        coherent_steps: 'CoherentSteps.md',
+    };
+    return names[fileType] || fileType;
+}
+
+/**
  * Route handlers.
  */
 const routes = {
@@ -116,14 +131,27 @@ const routes = {
     },
 
     '/ideas/:id': (params, container) => {
+        // Use IdeaWorkspace concept to render and manage the idea workspace
+        const workspace = new IdeaWorkspace(container, params.id);
+        window.crabgrass.ideaWorkspace = workspace; // Store reference
+        workspace.load();
+    },
+
+    '/ideas/:id/kernel/:type': (params, container) => {
+        // File editor placeholder (will be implemented in Slice 4)
+        const displayName = getFileDisplayName(params.type);
         container.innerHTML = `
-            <div class="route-placeholder">
-                <h1>Idea Workspace</h1>
-                <p>Viewing idea: ${params.id}</p>
-                <p style="margin-top: var(--spacing-md); color: var(--text-muted);">
-                    This screen will be implemented in Slice 2.
-                </p>
-                <a href="#/" style="margin-top: var(--spacing-md);">← Back to Home</a>
+            <div class="file-editor-placeholder">
+                <div class="workspace-header">
+                    <a href="#/ideas/${params.id}" class="back-link">← Back to Idea</a>
+                </div>
+                <div class="file-editor-content">
+                    <h2>${displayName}</h2>
+                    <p>File editor will be implemented in Slice 4.</p>
+                    <p style="color: var(--text-muted); font-size: var(--font-size-sm);">
+                        This is where you'll edit the kernel file with agent coaching.
+                    </p>
+                </div>
             </div>
         `;
     },

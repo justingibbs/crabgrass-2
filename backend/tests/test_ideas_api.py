@@ -210,3 +210,60 @@ class TestUserIsolation:
         # Sam should not see it
         sam_response = sam_client.get("/api/ideas")
         assert len(sam_response.json()["ideas"]) == 0
+
+
+class TestGetKernelFile:
+    """Tests for GET /api/ideas/{id}/kernel/{type}."""
+
+    def test_get_kernel_file(self, sally_client):
+        """Test getting a kernel file's content."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        response = sally_client.get(f"/api/ideas/{idea_id}/kernel/summary")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["file_type"] == "summary"
+        assert data["idea_id"] == idea_id
+        assert "content" in data
+        assert data["is_complete"] is False
+
+    def test_get_kernel_file_all_types(self, sally_client):
+        """Test getting all kernel file types."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        for file_type in ["summary", "challenge", "approach", "coherent_steps"]:
+            response = sally_client.get(f"/api/ideas/{idea_id}/kernel/{file_type}")
+            assert response.status_code == 200
+            assert response.json()["file_type"] == file_type
+
+    def test_get_kernel_file_invalid_type(self, sally_client):
+        """Test getting an invalid kernel file type returns 400."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        response = sally_client.get(f"/api/ideas/{idea_id}/kernel/invalid_type")
+
+        assert response.status_code == 400
+
+    def test_get_kernel_file_nonexistent_idea(self, sally_client):
+        """Test getting kernel file for non-existent idea returns 404."""
+        response = sally_client.get(
+            "/api/ideas/99999999-9999-9999-9999-999999999999/kernel/summary"
+        )
+
+        assert response.status_code == 404
+
+    def test_get_kernel_file_has_template_content(self, sally_client):
+        """Test that kernel files are initialized with template content."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        response = sally_client.get(f"/api/ideas/{idea_id}/kernel/challenge")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "# Challenge" in data["content"]
+        assert "problem" in data["content"].lower()

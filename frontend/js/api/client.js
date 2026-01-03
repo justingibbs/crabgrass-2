@@ -123,6 +123,17 @@ export const apiClient = {
             method: 'DELETE',
         });
     },
+
+    // --- Kernel Files ---
+
+    /**
+     * Get a kernel file's content.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileType - File type (summary, challenge, approach, coherent_steps)
+     */
+    async getKernelFile(ideaId, fileType) {
+        return request(`/api/ideas/${ideaId}/kernel/${fileType}`);
+    },
 };
 
 export default apiClient;

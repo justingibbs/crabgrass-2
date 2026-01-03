@@ -273,3 +273,57 @@ async def archive_idea(
     logger.info("idea_archived", idea_id=str(idea_id))
 
     return {"status": "archived", "id": str(idea_id)}
+
+
+# --- Kernel File Routes ---
+
+
+class KernelFileResponse(BaseModel):
+    """Response for a kernel file with content."""
+
+    id: str
+    idea_id: str
+    file_type: str
+    content: str
+    is_complete: bool
+    updated_at: str
+
+
+@router.get("/{idea_id}/kernel/{file_type}", response_model=KernelFileResponse)
+async def get_kernel_file(
+    idea_id: UUID,
+    file_type: str,
+    crabgrass_dev_user: Optional[str] = Cookie(default=None),
+):
+    """Get a kernel file's content."""
+    user_id, org_id = get_current_user_info(crabgrass_dev_user)
+
+    # Verify idea exists and user has access
+    idea = idea_concept.get(idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    if idea.org_id != org_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Validate file type
+    valid_types = ["summary", "challenge", "approach", "coherent_steps"]
+    if file_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Must be one of: {', '.join(valid_types)}",
+        )
+
+    # Get the kernel file
+    kernel_file = kernel_file_concept.get(idea_id, file_type)
+    if not kernel_file:
+        raise HTTPException(status_code=404, detail="Kernel file not found")
+
+    return KernelFileResponse(
+        id=str(kernel_file.id),
+        idea_id=str(kernel_file.idea_id),
+        file_type=kernel_file.file_type,
+        content=kernel_file.content,
+        is_complete=kernel_file.is_complete,
+        updated_at=kernel_file.updated_at.isoformat(),
+    )

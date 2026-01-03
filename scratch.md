@@ -4,6 +4,26 @@
 4. Idea opens with a 
 2. Sees that they have no Ideas that they are contributing on or own. See that some ideas have been shared with them
 
+
+Review @AI_README.md and files in @context. Then help me implement slice 2 of @implementation-plan-v1.md. Create a 
+
+Review @AI_README.md, all files in @context/ and especially @context/implementation-plan-v1.md. Then help me implement Slice 3. Ask me any questions you may have before writing code. And if you'd like, feel free to create a task list or whatever for this slice under @context/ 
+
+
+--- Slice 3 - complete but need to test
+
+  To test manually:
+  # Terminal 1
+  cd backend && rm -f data/crabgrass.duckdb && uv run uvicorn crabgrass.main:app --reload --port 8000
+
+  # Terminal 2
+  cd frontend && npx serve . -l 3000
+
+  Then visit http://localhost:3000, create an idea, and explore the workspace!
+
+
+---
+
 Main screens
 - Screen 1: Ideas List (Home): Very similar to what we have in @wireframes.md. But instead of "My Ideas" the section should be "Contributing to". Any new Idea the user creates would fall under "Contributing to". Also include a section for "Objectives"
 - Screen 2: New Idea Modal: This is not a modal but rather an empty "creen 3: Idea Workspace (Main View)". It should be more like Claude Projects stacked vertically, with the Kernal (Summary, Challenge, Approach, Coherent Steps) are actual Markdown files in the project under the section "Kernel Files". Under that section is a "Context Files" section where users can upload additional files (same as "Files" in Claude Projects). Above the "Kernel Files" section is a chat window where the user chats with "CoherenceAgent" agent (there is also some functionality to start a new sessioin or pull up an older one - this functionality should be available for all chat windows). At the top of the page is a section for Objective but it is not populated yet and a share/collaborators section/button. At the bottom of the page is a Publish/Archive button.
