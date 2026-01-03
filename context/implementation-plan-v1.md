@@ -677,6 +677,131 @@ This plan delivers Crabgrass MVP through 10 vertical slices. Each slice produces
 
 ---
 
+## Slice 11: WYSIWYG Canvas & AST Foundation
+
+**Goal:** Upgrade textarea editor to WYSIWYG with AST-based markdown handling.
+
+**Note:** This is a post-MVP enhancement. MVP (Slices 1-10) uses simple textarea + preview.
+
+### Backend Tasks
+
+1. **No backend changes required**
+   - File storage and JJ integration unchanged
+   - API endpoints remain the same
+
+### Frontend Tasks
+
+1. **WYSIWYG editor integration** (`lib/editor.js`)
+   - Evaluate and integrate Vanilla JS editor (options below)
+   - Options: Quill.js, Editor.js, or ProseMirror (direct, no React wrapper)
+   - Must support: bold, italic, headings, lists, blockquotes, links, inline code
+   - Markdown shortcuts (e.g., `# ` for heading, `- ` for list)
+
+2. **AST parsing layer** (`lib/markdown-ast.js`)
+   - Integrate unified/remark ecosystem (works without React)
+   - `parseMarkdown(string)` → mdast (Markdown AST)
+   - `serializeAst(mdast)` → markdown string
+   - Position tracking for each node (line/column offsets)
+
+3. **Editor ↔ AST sync** (`concepts/canvas.js` upgrade)
+   - Editor content changes → re-parse to AST
+   - AST modifications → update editor content
+   - Maintain cursor position across syncs
+
+4. **Upgrade Canvas concept**
+   - Replace textarea with WYSIWYG editor
+   - State additions: `ast: MdastRoot`, `editorInstance`
+   - Bidirectional sync between editor and AST
+
+5. **Formatting toolbar** (`components/canvas-toolbar.js`)
+   - Buttons: Bold, Italic, H1-H3, Bullet List, Numbered List, Quote, Code, Link
+   - Keyboard shortcuts (Cmd+B, Cmd+I, etc.)
+   - Toolbar state reflects current selection formatting
+
+### Tests
+
+- Manual: Edit with WYSIWYG, verify markdown output matches
+- Manual: Markdown shortcuts work (type `## ` → becomes H2)
+- Manual: Formatting toolbar applies styles correctly
+- Unit: AST parse → serialize roundtrip preserves content
+
+### Deliverable
+
+- WYSIWYG editing replaces textarea
+- Formatting toolbar functional
+- AST representation available for agent integration
+- Markdown serialization preserves formatting
+
+---
+
+## Slice 12: Canvas-Agent Integration & Selection Actions
+
+**Goal:** Agents can make targeted edits to canvas; users can select text and request AI actions.
+
+### Backend Tasks
+
+1. **ag-ui canvas events** (`api/events.py` extension)
+   - New SSE event types:
+     - `agent_edit` - Agent's targeted edit to canvas
+     - `agent_edit_stream_start/chunk/end` - Streaming edits
+   - Event payload includes: `file_path`, `operation`, `range`, `content`
+
+2. **Agent edit capability** (update all agents)
+   - Agents can emit `agent_edit` events (not just chat responses)
+   - Edit operations: `insert`, `replace`, `delete`
+   - Range specified as character offsets
+
+3. **Selection action endpoint** (`api/routes/agent.py`)
+   - `POST /api/ideas/{id}/kernel/{type}/selection-action`
+   - Request: `{selection: {start, end, text}, instruction: string}`
+   - Agent receives selection context, returns targeted edit
+
+### Frontend Tasks
+
+1. **Selection popup** (`components/selection-popup.js`)
+   - Appears when user selects text in canvas
+   - Text input for instruction (e.g., "make this more urgent")
+   - Submit sends to selection action endpoint
+   - Positioned near selection
+
+2. **ag-ui event handling** (`concepts/canvas.js` extension)
+   - Listen for `agent_edit` SSE events
+   - Apply edits to AST at specified range
+   - Sync AST changes to editor
+   - Visual indicator when agent is editing
+
+3. **Streaming edit support**
+   - Handle `agent_edit_stream_*` events
+   - Show typing indicator in canvas during stream
+   - Buffer chunks, apply on stream end
+
+4. **User edit events** (`sync/synchronizations.js`)
+   - Emit `user_edit` events when user modifies canvas
+   - Debounce to avoid flooding (e.g., 500ms after typing stops)
+   - Agent receives user edits for context
+
+5. **Conflict handling (simple)**
+   - Last-write-wins strategy
+   - If user and agent edit simultaneously, later edit applies
+   - Visual flash/highlight when agent edit arrives
+
+### Tests
+
+- `test_selection_action.py` - Selection context passed to agent correctly
+- `test_agent_edit_events.py` - Edit events emitted with correct format
+- Manual: Select text → "Ask AI" → agent edits selection
+- Manual: Agent suggests edit in chat → appears in canvas
+- Manual: Simultaneous edits don't crash (last wins)
+
+### Deliverable
+
+- Select text in canvas, type instruction, agent edits selection
+- Agents can push edits directly to canvas (not just chat suggestions)
+- User and agent edits flow bidirectionally via ag-ui
+- Streaming agent edits show live in canvas
+
+---
+
 ## Dependency Installation
 
 ### System Dependencies
@@ -735,18 +860,20 @@ Access at http://localhost:3000
 
 ## Slice Estimates
 
-| Slice | Description | Complexity |
-|-------|-------------|------------|
-| 1 | Project Foundation | Medium |
-| 2 | Ideas List & Creation | Medium |
-| 3 | Idea Workspace & File Viewing | Low |
-| 4 | File Editor with Canvas | Medium |
-| 5 | First Agent (ChallengeAgent) | High |
-| 6 | Remaining Kernel Agents | Medium |
-| 7 | CoherenceAgent | Medium |
-| 8 | Context Files | Medium |
-| 9 | Objectives | Medium |
-| 10 | Sessions, Embeddings & Polish | Medium |
+| Slice | Description | Complexity | Phase |
+|-------|-------------|------------|-------|
+| 1 | Project Foundation | Medium | MVP |
+| 2 | Ideas List & Creation | Medium | MVP |
+| 3 | Idea Workspace & File Viewing | Low | MVP |
+| 4 | File Editor with Canvas | Medium | MVP |
+| 5 | First Agent (ChallengeAgent) | High | MVP |
+| 6 | Remaining Kernel Agents | Medium | MVP |
+| 7 | CoherenceAgent | Medium | MVP |
+| 8 | Context Files | Medium | MVP |
+| 9 | Objectives | Medium | MVP |
+| 10 | Sessions, Embeddings & Polish | Medium | MVP |
+| 11 | WYSIWYG Canvas & AST Foundation | Medium | Post-MVP |
+| 12 | Canvas-Agent Integration & Selection Actions | High | Post-MVP |
 
 ---
 
@@ -759,6 +886,8 @@ Access at http://localhost:3000
 | **DuckDB extensions stability** | Test early in Slice 1, have fallback plan |
 | **SSE connection management** | Use proven sse-starlette library |
 | **Agent prompt engineering** | Iterate on prompts, structured output helps |
+| **WYSIWYG editor selection** (Slice 11) | Evaluate Quill.js, Editor.js, ProseMirror early; all are proven Vanilla JS options |
+| **AST ↔ Editor sync complexity** (Slice 11-12) | Start simple, defer OT/CRDT to future; last-write-wins acceptable |
 
 ---
 
@@ -780,5 +909,5 @@ MVP is complete when:
 
 ---
 
-*Document version: 1.0.0*
-*Last updated: 2026-01-01*
+*Document version: 1.1.0*
+*Last updated: 2026-01-02*
