@@ -7,6 +7,7 @@
 import { UserSwitcher } from './concepts/user-switcher.js';
 import { IdeaList } from './concepts/idea-list.js';
 import { IdeaWorkspace } from './concepts/idea-workspace.js';
+import { FileEditor } from './pages/file-editor.js';
 
 /**
  * Simple hash-based router.
@@ -138,22 +139,10 @@ const routes = {
     },
 
     '/ideas/:id/kernel/:type': (params, container) => {
-        // File editor placeholder (will be implemented in Slice 4)
-        const displayName = getFileDisplayName(params.type);
-        container.innerHTML = `
-            <div class="file-editor-placeholder">
-                <div class="workspace-header">
-                    <a href="#/ideas/${params.id}" class="back-link">← Back to Idea</a>
-                </div>
-                <div class="file-editor-content">
-                    <h2>${displayName}</h2>
-                    <p>File editor will be implemented in Slice 4.</p>
-                    <p style="color: var(--text-muted); font-size: var(--font-size-sm);">
-                        This is where you'll edit the kernel file with agent coaching.
-                    </p>
-                </div>
-            </div>
-        `;
+        // File editor with canvas
+        const fileEditor = new FileEditor(container, params.id, params.type);
+        window.crabgrass.fileEditor = fileEditor;
+        fileEditor.load();
     },
 
     '/objectives/:id': (params, container) => {

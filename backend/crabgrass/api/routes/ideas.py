@@ -9,7 +9,8 @@ import structlog
 
 from ...concepts.idea import IdeaConcept
 from ...concepts.kernel_file import KernelFileConcept
-from ...sync.synchronizations import on_idea_created
+from ...sync.synchronizations import on_idea_created, on_kernel_file_updated
+from ...concepts.version import version_concept
 from ...db.connection import get_db
 from ...db.migrations import SALLY_USER_ID
 
@@ -326,4 +327,139 @@ async def get_kernel_file(
         content=kernel_file.content,
         is_complete=kernel_file.is_complete,
         updated_at=kernel_file.updated_at.isoformat(),
+    )
+
+
+class UpdateKernelFileRequest(BaseModel):
+    """Request to update a kernel file."""
+
+    content: str
+    commit_message: Optional[str] = None
+
+
+class UpdateKernelFileResponse(BaseModel):
+    """Response after updating a kernel file."""
+
+    id: str
+    idea_id: str
+    file_type: str
+    content: str
+    is_complete: bool
+    updated_at: str
+    version: Optional[str] = None
+
+
+@router.put("/{idea_id}/kernel/{file_type}", response_model=UpdateKernelFileResponse)
+async def update_kernel_file(
+    idea_id: UUID,
+    file_type: str,
+    request: UpdateKernelFileRequest,
+    crabgrass_dev_user: Optional[str] = Cookie(default=None),
+):
+    """Update a kernel file's content."""
+    user_id, org_id = get_current_user_info(crabgrass_dev_user)
+
+    # Verify idea exists and user has access
+    idea = idea_concept.get(idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    if idea.org_id != org_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Validate file type
+    valid_types = ["summary", "challenge", "approach", "coherent_steps"]
+    if file_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Must be one of: {', '.join(valid_types)}",
+        )
+
+    # Update the kernel file in database
+    kernel_file = kernel_file_concept.update(
+        idea_id, file_type, request.content, user_id
+    )
+
+    if not kernel_file:
+        raise HTTPException(status_code=404, detail="Kernel file not found")
+
+    # Trigger synchronization (commits to JJ, updates idea timestamp)
+    on_kernel_file_updated(idea_id, file_type, request.content)
+
+    logger.info(
+        "kernel_file_updated",
+        idea_id=str(idea_id),
+        file_type=file_type,
+        user_id=str(user_id),
+    )
+
+    return UpdateKernelFileResponse(
+        id=str(kernel_file.id),
+        idea_id=str(kernel_file.idea_id),
+        file_type=kernel_file.file_type,
+        content=kernel_file.content,
+        is_complete=kernel_file.is_complete,
+        updated_at=kernel_file.updated_at.isoformat(),
+        version=None,  # Could include commit_id from version_concept if needed
+    )
+
+
+class VersionResponse(BaseModel):
+    """Response for a version/commit."""
+
+    commit_id: str
+    change_id: str
+    message: str
+    timestamp: str
+    author: str
+
+
+class VersionHistoryResponse(BaseModel):
+    """Response for version history."""
+
+    versions: list[VersionResponse]
+
+
+@router.get(
+    "/{idea_id}/kernel/{file_type}/history", response_model=VersionHistoryResponse
+)
+async def get_kernel_file_history(
+    idea_id: UUID,
+    file_type: str,
+    limit: int = 50,
+    crabgrass_dev_user: Optional[str] = Cookie(default=None),
+):
+    """Get version history for a kernel file."""
+    user_id, org_id = get_current_user_info(crabgrass_dev_user)
+
+    # Verify idea exists and user has access
+    idea = idea_concept.get(idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    if idea.org_id != org_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Validate file type
+    valid_types = ["summary", "challenge", "approach", "coherent_steps"]
+    if file_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Must be one of: {', '.join(valid_types)}",
+        )
+
+    # Get version history
+    versions = version_concept.get_history(idea_id, file_type, limit)
+
+    return VersionHistoryResponse(
+        versions=[
+            VersionResponse(
+                commit_id=v.commit_id,
+                change_id=v.change_id,
+                message=v.message,
+                timestamp=v.timestamp.isoformat(),
+                author=v.author,
+            )
+            for v in versions
+        ]
     )

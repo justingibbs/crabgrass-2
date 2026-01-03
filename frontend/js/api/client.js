@@ -134,6 +134,34 @@ export const apiClient = {
     async getKernelFile(ideaId, fileType) {
         return request(`/api/ideas/${ideaId}/kernel/${fileType}`);
     },
+
+    /**
+     * Update a kernel file's content.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileType - File type (summary, challenge, approach, coherent_steps)
+     * @param {string} content - New content
+     * @param {string} [commitMessage] - Optional commit message
+     */
+    async updateKernelFile(ideaId, fileType, content, commitMessage = null) {
+        const body = { content };
+        if (commitMessage) {
+            body.commit_message = commitMessage;
+        }
+        return request(`/api/ideas/${ideaId}/kernel/${fileType}`, {
+            method: 'PUT',
+            body: JSON.stringify(body),
+        });
+    },
+
+    /**
+     * Get version history for a kernel file.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileType - File type
+     * @param {number} [limit=50] - Maximum versions to return
+     */
+    async getKernelFileHistory(ideaId, fileType, limit = 50) {
+        return request(`/api/ideas/${ideaId}/kernel/${fileType}/history?limit=${limit}`);
+    },
 };
 
 export default apiClient;

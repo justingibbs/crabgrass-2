@@ -267,3 +267,144 @@ class TestGetKernelFile:
         data = response.json()
         assert "# Challenge" in data["content"]
         assert "problem" in data["content"].lower()
+
+
+class TestUpdateKernelFile:
+    """Tests for PUT /api/ideas/{id}/kernel/{type}."""
+
+    def test_update_kernel_file(self, sally_client):
+        """Test updating a kernel file's content."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        new_content = "# Summary\n\nThis is my updated summary content."
+        response = sally_client.put(
+            f"/api/ideas/{idea_id}/kernel/summary",
+            json={"content": new_content}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["file_type"] == "summary"
+        assert data["content"] == new_content
+
+    def test_update_kernel_file_with_commit_message(self, sally_client):
+        """Test updating a kernel file with a custom commit message."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        new_content = "# Challenge\n\nUpdated challenge."
+        response = sally_client.put(
+            f"/api/ideas/{idea_id}/kernel/challenge",
+            json={
+                "content": new_content,
+                "commit_message": "Added specific challenge details"
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["content"] == new_content
+
+    def test_update_kernel_file_invalid_type(self, sally_client):
+        """Test updating an invalid kernel file type returns 400."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        response = sally_client.put(
+            f"/api/ideas/{idea_id}/kernel/invalid_type",
+            json={"content": "Some content"}
+        )
+
+        assert response.status_code == 400
+
+    def test_update_kernel_file_nonexistent_idea(self, sally_client):
+        """Test updating kernel file for non-existent idea returns 404."""
+        response = sally_client.put(
+            "/api/ideas/99999999-9999-9999-9999-999999999999/kernel/summary",
+            json={"content": "Some content"}
+        )
+
+        assert response.status_code == 404
+
+    def test_update_kernel_file_persists(self, sally_client):
+        """Test that updated content persists when retrieved."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        new_content = "# Approach\n\nMy detailed approach."
+        sally_client.put(
+            f"/api/ideas/{idea_id}/kernel/approach",
+            json={"content": new_content}
+        )
+
+        # Get the file again
+        get_response = sally_client.get(f"/api/ideas/{idea_id}/kernel/approach")
+        assert get_response.json()["content"] == new_content
+
+
+class TestKernelFileHistory:
+    """Tests for GET /api/ideas/{id}/kernel/{type}/history."""
+
+    def test_get_history_after_update(self, sally_client):
+        """Test getting history shows commits after updates."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        # Update the file
+        sally_client.put(
+            f"/api/ideas/{idea_id}/kernel/summary",
+            json={
+                "content": "# Summary\n\nFirst update.",
+                "commit_message": "First update"
+            }
+        )
+
+        response = sally_client.get(f"/api/ideas/{idea_id}/kernel/summary/history")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "versions" in data
+        # Should have at least the initial commit and the update
+        assert len(data["versions"]) >= 1
+
+    def test_get_history_invalid_type(self, sally_client):
+        """Test getting history for invalid file type returns 400."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        response = sally_client.get(
+            f"/api/ideas/{idea_id}/kernel/invalid_type/history"
+        )
+
+        assert response.status_code == 400
+
+    def test_get_history_nonexistent_idea(self, sally_client):
+        """Test getting history for non-existent idea returns 404."""
+        response = sally_client.get(
+            "/api/ideas/99999999-9999-9999-9999-999999999999/kernel/summary/history"
+        )
+
+        assert response.status_code == 404
+
+    def test_get_history_multiple_updates(self, sally_client):
+        """Test that multiple updates create multiple history entries."""
+        create_response = sally_client.post("/api/ideas", json={"title": "Test"})
+        idea_id = create_response.json()["id"]
+
+        # Make several updates
+        for i in range(3):
+            sally_client.put(
+                f"/api/ideas/{idea_id}/kernel/summary",
+                json={
+                    "content": f"# Summary\n\nUpdate number {i + 1}.",
+                    "commit_message": f"Update {i + 1}"
+                }
+            )
+
+        response = sally_client.get(f"/api/ideas/{idea_id}/kernel/summary/history")
+
+        assert response.status_code == 200
+        data = response.json()
+        # Should have initial commit plus 3 updates
+        assert len(data["versions"]) >= 3

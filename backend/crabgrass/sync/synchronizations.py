@@ -11,6 +11,7 @@ import structlog
 
 from ..concepts.idea import Idea, IdeaConcept
 from ..concepts.kernel_file import KernelFileConcept
+from ..concepts.version import version_concept
 
 logger = structlog.get_logger()
 
@@ -24,7 +25,7 @@ def on_idea_created(idea: Idea) -> None:
     sync IdeaCreated:
         when Idea.create():
             → KernelFile.initializeAll(idea_id)
-            → Version.initialize(idea_id)  # Slice 4
+            → Version.initialize(idea_id)
             → if objective_id: Graph.connect(idea_id, objective_id, "SUPPORTS")  # Slice 9
             → Session.create(idea_id, user_id, "coherence")  # Slice 5
     """
@@ -42,7 +43,13 @@ def on_idea_created(idea: Idea) -> None:
         count=len(kernel_files),
     )
 
-    # TODO Slice 4: Version.initialize(idea.id)
+    # Initialize JJ repository for version control
+    version_concept.initialize(idea.id)
+
+    # Write initial kernel files to JJ repo
+    kernel_content = {kf.file_type: kf.content for kf in kernel_files}
+    version_concept.write_initial_files(idea.id, kernel_content)
+
     # TODO Slice 9: if idea.objective_id: Graph.connect(idea.id, idea.objective_id, "SUPPORTS")
     # TODO Slice 5: Session.create(idea.id, idea.creator_id, "coherence")
 
@@ -79,7 +86,9 @@ def on_kernel_file_updated(idea_id, file_type, content) -> None:
     # Update idea's updated_at timestamp
     idea_concept.update(idea_id)
 
-    # TODO Slice 4: Version.commit(idea_id, file_type, content)
+    # Commit to JJ repository
+    version_concept.commit(idea_id, file_type, content)
+
     # TODO Slice 10: embedding = Embedding.generate(content)
     # TODO Slice 10: kernel_file_concept.set_embedding(idea_id, file_type, embedding)
     # TODO Slice 5: agent = get_agent_for_file_type(file_type)
