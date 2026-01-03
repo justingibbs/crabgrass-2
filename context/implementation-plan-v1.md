@@ -429,68 +429,90 @@ This plan delivers Crabgrass MVP through 10 vertical slices. Each slice produces
 
 ## Slice 7: CoherenceAgent
 
-**Goal:** Idea Workspace has CoherenceAgent chat that checks cross-file consistency.
+**Goal:** Idea Workspace has CoherenceAgent chat that checks cross-file consistency and maintains a `feedback-tasks.md` context file.
+
+### Design Decisions
+
+| Decision | Choice | Rationale |
+|----------|--------|-----------|
+| Coherence output | `feedback-tasks.md` context file | Persistent, human-readable, other agents can reference it |
+| Evaluation trigger | Background on 2+ kernel files complete | Non-blocking, updates file automatically |
+| Sessions | Idea-scoped (one coherence session per idea) | Simplifies management, continuous conversation |
+| Toast notifications | Deferred | Keep UI simple for MVP |
+| Suggest next file | Via `feedback-tasks.md` | No separate endpoint needed |
 
 ### Backend Tasks
 
-1. **CoherenceAgent** (`concepts/agents/coherence_agent.py`)
-   - `evaluate(idea_id)` - Check all kernel files for consistency
-   - `coach(idea_id, user_message)` - Guide overall idea development
-   - `suggest_next_file(idea_id)` - Recommend which file to work on
+1. **Minimal ContextFile concept** (`concepts/context_file.py`)
+   - `ContextFile` dataclass
+   - `ContextFileConcept`: `create()`, `get()`, `update()`, `list()`
+   - Note: Delete and full API routes deferred to Slice 8
+   - Validation: .md extension, no spaces, max 50KB
+
+2. **Database schema**
+   - `context_files` table (pulled forward from Slice 8)
+
+3. **CoherenceAgent** (`concepts/agents/coherence_agent.py`)
+   - `evaluate(idea_id)` - Check all kernel files, create/update `feedback-tasks.md`
+   - `coach(idea_id, user_message, session_id)` - Guide overall idea development
+   - Reads existing `feedback-tasks.md` for context
    - Checks:
      - Does Approach address Challenge?
      - Are Steps implementing Approach?
      - Does Summary capture essence?
+     - Will completing Steps solve the Challenge?
+   - Outputs structured feedback with actionable tasks
 
-2. **Agent prompts**
-   - `COHERENCE_AGENT_SYSTEM_PROMPT`
-   - Include all 4 kernel file contents in context
+4. **Agent prompts**
+   - Enhanced `COHERENCE_AGENT_SYSTEM_PROMPT`
+   - `COHERENCE_AGENT_EVALUATION_PROMPT` - For generating `feedback-tasks.md`
+   - Include all 4 kernel file contents + existing `feedback-tasks.md` in context
 
-3. **API routes**
+5. **API routes** (`api/routes/coherence.py`)
    - `POST /api/ideas/{id}/coherence/chat` - Chat with CoherenceAgent
-   - `GET /api/ideas/{id}/coherence/status` - Get coherence evaluation
+   - `POST /api/ideas/{id}/coherence/evaluate` - Manually trigger evaluation (creates/updates feedback-tasks.md)
 
-4. **Synchronizations**
-   - `on_kernel_marked_complete()`: If 2+ complete, trigger CoherenceAgent evaluation
+6. **Synchronizations**
+   - `on_kernel_marked_complete()`: If 2+ complete, trigger CoherenceAgent.evaluate() in background
 
 ### Frontend Tasks
 
 1. **Update Idea Workspace**
-   - CoherenceAgent chat section now functional
-   - Sessions dropdown for multiple conversations
-   - Shows coherence warnings/suggestions
+   - CoherenceAgent chat section now functional (replace placeholder)
+   - Shows `feedback-tasks.md` in context files section
+   - Sessions dropdown for conversation history
 
-2. **Toast concept** (`concepts/toast.js`)
-   - Display notifications
-   - Actions: `notify()`, `dismiss()`
-   - High priority coherence issues show as toast
+2. **Update API client**
+   - Add coherence chat and evaluate endpoints
+   - Add context file list endpoint
 
 ### Tests
 
-- `test_coherence_agent.py` - Mock scenario with inconsistent files
-- Manual: Complete 2 kernel files, see CoherenceAgent feedback
+- `test_context_file.py` - CRUD operations for context files
+- `test_coherence_agent.py` - Evaluation generates valid feedback-tasks.md
+- `test_coherence_api.py` - Chat and evaluate endpoints
+- Manual: Complete 2 kernel files, see feedback-tasks.md created
 
 ### Deliverable
 
 - Idea Workspace chat works with CoherenceAgent
-- Agent notices inconsistencies across files
-- Suggests which file to work on next
+- `feedback-tasks.md` automatically created/updated when 2+ kernel files complete
+- Agent provides coherence feedback and task suggestions via the file
+- Other agents can reference `feedback-tasks.md` for context
 
 ---
 
 ## Slice 8: Context Files
 
-**Goal:** Create, edit, delete context files. ContextAgent extracts insights.
+**Goal:** Complete context file functionality with user-facing CRUD and ContextAgent insights.
+
+**Note:** Minimal ContextFile concept and `context_files` table were implemented in Slice 7 to support `feedback-tasks.md`.
 
 ### Backend Tasks
 
-1. **ContextFile concept** (`concepts/context_file.py`)
-   - `ContextFile` dataclass
-   - `ContextFileConcept`: `create()`, `get()`, `update()`, `delete()`, `list()`
-   - Validation: .md extension, no spaces, max 50KB
-
-2. **Database schema**
-   - `context_files` table
+1. **Complete ContextFile concept** (`concepts/context_file.py`)
+   - Add `delete()` method
+   - Add full validation and error handling
 
 3. **ContextAgent** (`concepts/agents/context_agent.py`)
    - `extract(idea_id, content)` - Find insights relevant to kernel files
