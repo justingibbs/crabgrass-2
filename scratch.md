@@ -7,7 +7,7 @@
 
 Review @AI_README.md and files in @context. Then help me implement slice 2 of @implementation-plan-v1.md. Create a 
 
-Review @AI_README.md, all files in @context/ and especially @context/implementation-plan-v1.md. Then help me implement Slice 5. Ask me any questions you may have before writing code. And if you'd like, feel free to create a task list or whatever for this slice under @context/ 
+Review @AI_README.md, all files in @context/ and especially @context/implementation-plan-v1.md. Then help me implement Slice 6. Ask me any questions you may have before writing code. And if you'd like, feel free to create a task list or whatever for this slice under @context/ 
 
 
 --- Slice 3 - complete but need to test

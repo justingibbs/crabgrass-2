@@ -119,8 +119,8 @@ async def on_kernel_file_updated_async(idea_id, file_type, content) -> None:
             await on_kernel_file_marked_complete_async(idea_id, file_type)
 
     except ValueError:
-        # No agent for this file type yet (e.g., summary, approach, steps in Slice 5)
-        logger.debug(
+        # No agent for this file type (should not happen for kernel files)
+        logger.warning(
             "no_agent_for_file_type",
             idea_id=str(idea_id),
             file_type=file_type,

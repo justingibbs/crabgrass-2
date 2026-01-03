@@ -115,16 +115,26 @@ class TestAgentChatAPI:
             assert response2.status_code == 200
             assert response2.json()["session_id"] == session_id
 
-    def test_chat_only_challenge_agent_available(self, client, idea_id):
-        """Only challenge agent is available in Slice 5."""
-        # summary, approach, and coherent_steps should fail
-        for file_type in ["summary", "approach", "coherent_steps"]:
-            response = client.post(
-                f"/api/ideas/{idea_id}/kernel/{file_type}/chat",
-                json={"message": "Hello"},
-            )
-            assert response.status_code == 400
-            assert "No agent available" in response.json()["detail"]
+    def test_chat_with_all_agents(self, client, idea_id):
+        """All kernel file agents are available (Slice 6)."""
+        agent_mocks = {
+            "summary": "crabgrass.concepts.agents.summary_agent.chat_with_history",
+            "challenge": "crabgrass.concepts.agents.challenge_agent.chat_with_history",
+            "approach": "crabgrass.concepts.agents.approach_agent.chat_with_history",
+            "coherent_steps": "crabgrass.concepts.agents.steps_agent.chat_with_history",
+        }
+
+        for file_type, mock_path in agent_mocks.items():
+            with patch(mock_path) as mock_chat:
+                mock_chat.return_value = f"Response from {file_type} agent"
+
+                response = client.post(
+                    f"/api/ideas/{idea_id}/kernel/{file_type}/chat",
+                    json={"message": "Hello"},
+                )
+
+                assert response.status_code == 200, f"Failed for {file_type}: {response.json()}"
+                assert "response" in response.json()
 
 
 class TestSessionsAPI:

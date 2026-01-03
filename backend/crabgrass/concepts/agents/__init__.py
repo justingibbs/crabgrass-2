@@ -1,23 +1,24 @@
 """Agent concepts - AI coaches for different aspects of idea development."""
 
 from .challenge_agent import ChallengeAgent, challenge_agent
+from .summary_agent import SummaryAgent, summary_agent
+from .approach_agent import ApproachAgent, approach_agent
+from .steps_agent import StepsAgent, steps_agent
 
 # Map file types to their agents
 FILE_TYPE_TO_AGENT = {
+    "summary": summary_agent,
     "challenge": challenge_agent,
-    # Slice 6 will add:
-    # "summary": summary_agent,
-    # "approach": approach_agent,
-    # "coherent_steps": steps_agent,
+    "approach": approach_agent,
+    "coherent_steps": steps_agent,
 }
 
 # Map agent types to their agents
 AGENT_TYPE_TO_AGENT = {
+    "summary": summary_agent,
     "challenge": challenge_agent,
-    # Slice 6 will add:
-    # "summary": summary_agent,
-    # "approach": approach_agent,
-    # "steps": steps_agent,
+    "approach": approach_agent,
+    "steps": steps_agent,
     # Slice 7 will add:
     # "coherence": coherence_agent,
     # Slice 8 will add:
@@ -46,6 +47,12 @@ def get_agent_by_type(agent_type: str):
 __all__ = [
     "ChallengeAgent",
     "challenge_agent",
+    "SummaryAgent",
+    "summary_agent",
+    "ApproachAgent",
+    "approach_agent",
+    "StepsAgent",
+    "steps_agent",
     "get_agent_for_file_type",
     "get_agent_by_type",
 ]
