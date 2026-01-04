@@ -9,6 +9,7 @@ import { Canvas } from '../concepts/canvas.js';
 import { Chat } from '../concepts/chat.js';
 import { apiClient } from '../api/client.js';
 import { VersionHistoryModal } from '../components/version-history-modal.js';
+import { createSSEClient, createObjectiveSSEClient } from '../api/events.js';
 
 // Mapping of kernel file types to display names
 const KERNEL_FILE_DISPLAY_NAMES = {
@@ -55,11 +56,13 @@ export class FileEditor {
         this.displayName = '';
         this.canvas = null;
         this.chat = null;
+        this.sseClient = null;
         this.isLoading = true;
         this.isSaving = false;
         this.isDeleting = false;
         this.error = null;
         this.isAdmin = false;
+        this.sessionId = null; // Track session for selection actions
 
         this.render();
     }
@@ -96,6 +99,9 @@ export class FileEditor {
             this.isLoading = false;
             this.render();
 
+            // Initialize SSE client for real-time updates
+            this._initSSEClient();
+
             // Initialize canvas with content
             this._initCanvas();
 
@@ -110,6 +116,62 @@ export class FileEditor {
     }
 
     /**
+     * Initialize the SSE client for real-time updates.
+     * @private
+     */
+    _initSSEClient() {
+        if (this.isObjectiveFile || this.isObjectiveContextFile) {
+            this.sseClient = createObjectiveSSEClient(this.objectiveId);
+        } else {
+            this.sseClient = createSSEClient(this.ideaId);
+        }
+
+        // Filter agent_edit events to only apply to this file
+        const originalOn = this.sseClient.on.bind(this.sseClient);
+        this.sseClient.on = (eventType, callback) => {
+            if (eventType === 'agent_edit') {
+                originalOn(eventType, (data) => {
+                    if (this._isEditForThisFile(data)) {
+                        callback(data);
+                    }
+                });
+            } else if (eventType.startsWith('agent_edit_stream')) {
+                originalOn(eventType, (data) => {
+                    // For streaming, we need to check the pending edits
+                    // or match based on expected file path
+                    callback(data);
+                });
+            } else {
+                originalOn(eventType, callback);
+            }
+        };
+
+        this.sseClient.connect();
+    }
+
+    /**
+     * Check if an agent edit is for this file.
+     * @private
+     * @param {Object} data - Edit data with file_path
+     * @returns {boolean}
+     */
+    _isEditForThisFile(data) {
+        const filePath = data.file_path;
+
+        if (this.isKernelFile) {
+            return filePath === `kernel/${this.fileType}`;
+        } else if (this.isContextFile) {
+            return filePath === `context/${this.fileId}`;
+        } else if (this.isObjectiveFile) {
+            return filePath === 'objective';
+        } else if (this.isObjectiveContextFile) {
+            return filePath === `context/${this.fileId}`;
+        }
+
+        return false;
+    }
+
+    /**
      * Initialize the canvas component.
      * @private
      */
@@ -119,10 +181,61 @@ export class FileEditor {
 
         this.canvas = new Canvas(canvasContainer, {
             initialContent: this.file.content,
+            sseClient: this.sseClient,
             onChange: (content, isDirty) => {
                 this._updateSaveButtonState(isDirty);
             },
+            onSelectionAction: async (selection, instruction) => {
+                await this._handleSelectionAction(selection, instruction);
+            },
         });
+    }
+
+    /**
+     * Handle a selection action from the canvas.
+     * @private
+     * @param {Object} selection - { start, end, text }
+     * @param {string} instruction - User instruction
+     */
+    async _handleSelectionAction(selection, instruction) {
+        try {
+            let result;
+
+            if (this.isKernelFile) {
+                result = await apiClient.kernelFileSelectionAction(
+                    this.ideaId,
+                    this.fileType,
+                    selection,
+                    instruction,
+                    this.sessionId
+                );
+            } else if (this.isContextFile) {
+                result = await apiClient.contextFileSelectionAction(
+                    this.ideaId,
+                    this.fileId,
+                    selection,
+                    instruction,
+                    this.sessionId
+                );
+            } else if (this.isObjectiveFile) {
+                result = await apiClient.objectiveFileSelectionAction(
+                    this.objectiveId,
+                    selection,
+                    instruction,
+                    this.sessionId
+                );
+            } else {
+                throw new Error('Selection action not supported for this file type');
+            }
+
+            // Store session ID for future requests
+            if (result.session_id) {
+                this.sessionId = result.session_id;
+            }
+        } catch (error) {
+            console.error('Selection action failed:', error);
+            throw error;
+        }
     }
 
     /**
@@ -527,6 +640,14 @@ export class FileEditor {
      */
     destroy() {
         document.removeEventListener('keydown', this._handleKeydown.bind(this));
+
+        if (this.sseClient) {
+            this.sseClient.disconnect();
+        }
+
+        if (this.canvas) {
+            this.canvas.destroy();
+        }
     }
 
     /**

@@ -473,3 +473,202 @@
     height: auto;
     border-radius: var(--border-radius);
 }
+
+/* ============================================
+   Selection Popup
+   ============================================ */
+
+.selection-popup {
+    position: fixed;
+    z-index: 1000;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+    padding: var(--spacing-xs);
+    animation: selection-popup-appear 0.15s ease-out;
+}
+
+@keyframes selection-popup-appear {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.selection-popup-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.selection-popup-input {
+    width: 220px;
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-sm);
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.selection-popup-input:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.selection-popup-input::placeholder {
+    color: var(--text-muted);
+}
+
+.selection-popup-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    background: var(--color-primary);
+    color: white;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.selection-popup-submit:hover {
+    background: var(--color-primary-dark);
+}
+
+.selection-popup-submit:active {
+    transform: scale(0.95);
+}
+
+.selection-popup-submit .submit-icon {
+    font-size: 14px;
+}
+
+.selection-popup-submit .submit-spinner {
+    display: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid white;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spinner-rotate 0.6s linear infinite;
+}
+
+@keyframes spinner-rotate {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Processing state */
+.selection-popup.processing .submit-icon {
+    display: none;
+}
+
+.selection-popup.processing .submit-spinner {
+    display: block;
+}
+
+.selection-popup.processing .selection-popup-input {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.selection-popup.processing .selection-popup-submit {
+    pointer-events: none;
+}
+
+/* Error state */
+.selection-popup.error .selection-popup-input {
+    border-color: var(--color-danger);
+    background: rgba(220, 38, 38, 0.05);
+}
+
+.selection-popup.error .selection-popup-input::placeholder {
+    color: var(--color-danger);
+}
+
+/* ============================================
+   Agent Edit Indicators & Highlights
+   ============================================ */
+
+/* Working indicator overlay */
+.canvas-edit-working {
+    position: relative;
+}
+
+.canvas-edit-working::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(37, 99, 235, 0.03);
+    border-radius: var(--border-radius);
+    pointer-events: none;
+    animation: edit-working-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes edit-working-pulse {
+    0%, 100% {
+        opacity: 0.5;
+    }
+    50% {
+        opacity: 1;
+    }
+}
+
+/* Localized working indicator */
+.edit-working-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius-sm);
+    font-size: var(--font-size-xs);
+    color: var(--text-secondary);
+    position: absolute;
+    z-index: 100;
+}
+
+.edit-working-indicator .indicator-spinner {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--color-primary);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spinner-rotate 0.6s linear infinite;
+}
+
+/* Change highlight - applied to edited content */
+.agent-edit-highlight {
+    background: rgba(37, 99, 235, 0.15);
+    transition: background 1s ease-out;
+}
+
+.agent-edit-highlight.fade-out {
+    background: transparent;
+}
+
+/* Inline highlight for Quill selections */
+.ql-editor .agent-edit-range {
+    background: rgba(251, 191, 36, 0.25);
+    border-radius: 2px;
+    transition: background 1s ease-out;
+}
+
+.ql-editor .agent-edit-range.fade-out {
+    background: transparent;
+}

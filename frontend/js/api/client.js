@@ -154,6 +154,25 @@ export const apiClient = {
     },
 
     /**
+     * Perform an AI action on selected text in a kernel file.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileType - File type (summary, challenge, approach, coherent_steps)
+     * @param {Object} selection - Selection range {start, end, text}
+     * @param {string} instruction - User instruction for the AI
+     * @param {string} [sessionId] - Optional session ID
+     */
+    async kernelFileSelectionAction(ideaId, fileType, selection, instruction, sessionId = null) {
+        const body = { selection, instruction };
+        if (sessionId) {
+            body.session_id = sessionId;
+        }
+        return request(`/api/ideas/${ideaId}/kernel/${fileType}/selection-action`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    },
+
+    /**
      * Get version history for a kernel file.
      * @param {string} ideaId - Idea ID
      * @param {string} fileType - File type
@@ -304,6 +323,25 @@ export const apiClient = {
     },
 
     /**
+     * Perform an AI action on selected text in a context file.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileId - File ID
+     * @param {Object} selection - Selection range {start, end, text}
+     * @param {string} instruction - User instruction for the AI
+     * @param {string} [sessionId] - Optional session ID
+     */
+    async contextFileSelectionAction(ideaId, fileId, selection, instruction, sessionId = null) {
+        const body = { selection, instruction };
+        if (sessionId) {
+            body.session_id = sessionId;
+        }
+        return request(`/api/ideas/${ideaId}/context/${fileId}/selection-action`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    },
+
+    /**
      * Delete a context file.
      * @param {string} ideaId - Idea ID
      * @param {string} fileId - File ID
@@ -441,6 +479,24 @@ export const apiClient = {
         return request(`/api/objectives/${objectiveId}/file`, {
             method: 'PUT',
             body: JSON.stringify({ content }),
+        });
+    },
+
+    /**
+     * Perform an AI action on selected text in an objective file (admin only).
+     * @param {string} objectiveId - Objective ID
+     * @param {Object} selection - Selection range {start, end, text}
+     * @param {string} instruction - User instruction for the AI
+     * @param {string} [sessionId] - Optional session ID
+     */
+    async objectiveFileSelectionAction(objectiveId, selection, instruction, sessionId = null) {
+        const body = { selection, instruction };
+        if (sessionId) {
+            body.session_id = sessionId;
+        }
+        return request(`/api/objectives/${objectiveId}/selection-action`, {
+            method: 'POST',
+            body: JSON.stringify(body),
         });
     },
 

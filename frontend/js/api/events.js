@@ -5,20 +5,30 @@
 const API_BASE = 'http://localhost:8000';
 
 /**
- * SSE Client for subscribing to idea events.
+ * SSE Client for subscribing to idea or objective events.
  */
 export class SSEClient {
     /**
      * Create an SSE client.
-     * @param {string} ideaId - The idea ID to subscribe to
+     * @param {string} entityId - The idea or objective ID to subscribe to
+     * @param {string} entityType - 'idea' or 'objective'
      */
-    constructor(ideaId) {
-        this.ideaId = ideaId;
+    constructor(entityId, entityType = 'idea') {
+        this.entityId = entityId;
+        this.entityType = entityType;
         this.eventSource = null;
         this.listeners = new Map();
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 5;
         this.reconnectDelay = 1000;
+
+        // Streaming edit state
+        this.pendingEdits = new Map(); // edit_id -> { chunks: [], ... }
+    }
+
+    // Backwards compatibility
+    get ideaId() {
+        return this.entityId;
     }
 
     /**
@@ -29,11 +39,12 @@ export class SSEClient {
             this.disconnect();
         }
 
-        const url = `${API_BASE}/api/ideas/${this.ideaId}/events`;
+        const endpoint = this.entityType === 'objective' ? 'objectives' : 'ideas';
+        const url = `${API_BASE}/api/${endpoint}/${this.entityId}/events`;
         this.eventSource = new EventSource(url, { withCredentials: true });
 
         this.eventSource.onopen = () => {
-            console.log('SSE connected:', this.ideaId);
+            console.log('SSE connected:', this.entityType, this.entityId);
             this.reconnectAttempts = 0;
         };
 
@@ -61,6 +72,48 @@ export class SSEClient {
         this.eventSource.addEventListener('agent_message', (event) => {
             const data = JSON.parse(event.data);
             this._emit('agent_message', data);
+        });
+
+        // Agent edit events
+        this.eventSource.addEventListener('agent_edit', (event) => {
+            const data = JSON.parse(event.data);
+            this._emit('agent_edit', data);
+        });
+
+        // Streaming edit events
+        this.eventSource.addEventListener('agent_edit_stream_start', (event) => {
+            const data = JSON.parse(event.data);
+            this.pendingEdits.set(data.edit_id, {
+                ...data,
+                chunks: [],
+            });
+            this._emit('agent_edit_stream_start', data);
+        });
+
+        this.eventSource.addEventListener('agent_edit_stream_chunk', (event) => {
+            const data = JSON.parse(event.data);
+            const pending = this.pendingEdits.get(data.edit_id);
+            if (pending) {
+                pending.chunks.push(data.content);
+            }
+            this._emit('agent_edit_stream_chunk', data);
+        });
+
+        this.eventSource.addEventListener('agent_edit_stream_end', (event) => {
+            const data = JSON.parse(event.data);
+            const pending = this.pendingEdits.get(data.edit_id);
+            if (pending) {
+                // Emit complete edit with all data
+                this._emit('agent_edit', {
+                    edit_id: data.edit_id,
+                    file_path: pending.file_path,
+                    operation: pending.operation,
+                    range: pending.range,
+                    content: data.final_content,
+                });
+                this.pendingEdits.delete(data.edit_id);
+            }
+            this._emit('agent_edit_stream_end', data);
         });
     }
 
@@ -140,7 +193,16 @@ export class SSEClient {
  * @returns {SSEClient}
  */
 export function createSSEClient(ideaId) {
-    return new SSEClient(ideaId);
+    return new SSEClient(ideaId, 'idea');
+}
+
+/**
+ * Create an SSE client for an objective.
+ * @param {string} objectiveId - The objective ID
+ * @returns {SSEClient}
+ */
+export function createObjectiveSSEClient(objectiveId) {
+    return new SSEClient(objectiveId, 'objective');
 }
 
 export default SSEClient;
