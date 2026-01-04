@@ -5,6 +5,7 @@
  */
 
 import { apiClient } from '../api/client.js';
+import { ObjectiveList } from './objective-list.js';
 
 export class IdeaList {
     constructor(containerEl) {
@@ -12,6 +13,7 @@ export class IdeaList {
         this.ideas = [];
         this.loading = true;
         this.error = null;
+        this.objectiveList = null;
     }
 
     /**
@@ -89,14 +91,20 @@ export class IdeaList {
                 <div class="section-header" style="margin-top: var(--spacing-xl);">
                     <span class="section-title">Objectives</span>
                 </div>
-                <div class="empty-state">
-                    <p>No objectives yet. Objectives will appear here once created by admins.</p>
-                </div>
+                <div id="objectives-section"></div>
             </div>
         `;
 
         // Attach event listeners
         this.attachEventListeners();
+
+        // Initialize and load objectives section
+        const objectivesContainer = document.getElementById('objectives-section');
+        if (objectivesContainer) {
+            this.objectiveList = new ObjectiveList(objectivesContainer);
+            window.crabgrass.objectiveList = this.objectiveList;
+            this.objectiveList.load();
+        }
     }
 
     /**

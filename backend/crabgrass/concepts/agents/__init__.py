@@ -6,6 +6,7 @@ from .approach_agent import ApproachAgent, approach_agent
 from .steps_agent import StepsAgent, steps_agent
 from .coherence_agent import CoherenceAgent, coherence_agent
 from .context_agent import ContextAgent, context_agent
+from .objective_agent import ObjectiveAgent, objective_agent
 
 # Map file types to their agents
 FILE_TYPE_TO_AGENT = {
@@ -23,8 +24,7 @@ AGENT_TYPE_TO_AGENT = {
     "steps": steps_agent,
     "coherence": coherence_agent,
     "context": context_agent,
-    # Slice 9 will add:
-    # "objective": objective_agent,
+    "objective": objective_agent,
 }
 
 
@@ -57,6 +57,8 @@ __all__ = [
     "coherence_agent",
     "ContextAgent",
     "context_agent",
+    "ObjectiveAgent",
+    "objective_agent",
     "get_agent_for_file_type",
     "get_agent_by_type",
 ]

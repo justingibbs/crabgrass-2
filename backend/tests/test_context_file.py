@@ -143,8 +143,18 @@ class TestContextFileConcept:
 
     def test_list_context_files(self, test_idea):
         """Test listing all context files for an idea."""
-        context_file_concept.create(test_idea.id, "file1.md", "Content 1", SALLY_USER_ID)
-        context_file_concept.create(test_idea.id, "file2.md", "Content 2", SALLY_USER_ID)
+        context_file_concept.create(
+            idea_id=test_idea.id,
+            filename="file1.md",
+            content="Content 1",
+            user_id=SALLY_USER_ID,
+        )
+        context_file_concept.create(
+            idea_id=test_idea.id,
+            filename="file2.md",
+            content="Content 2",
+            user_id=SALLY_USER_ID,
+        )
 
         files = context_file_concept.list(test_idea.id)
 

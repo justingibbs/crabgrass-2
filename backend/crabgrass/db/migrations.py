@@ -40,6 +40,24 @@ _What are the concrete next actions? List 3-5 specific steps to move forward._
 """,
 }
 
+# Objective file template
+OBJECTIVE_FILE_TEMPLATE = """# Objective
+
+_Define what success looks like for this objective._
+
+## Why This Matters
+
+_What's the strategic importance? What happens if we don't achieve this?_
+
+## Success Criteria
+
+_How will we know when this objective is achieved? Be specific and measurable._
+
+-
+-
+-
+"""
+
 
 def run_migrations() -> None:
     """Run all database migrations."""
@@ -88,6 +106,103 @@ def _run_incremental_migrations(conn, existing_tables: set) -> None:
                 UNIQUE(idea_id, filename)
             )
         """)
+
+    # Slice 9: Add objective_files table
+    if "objective_files" not in existing_tables:
+        logger.info("adding_objective_files_table")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS objective_files (
+                id UUID PRIMARY KEY,
+                objective_id UUID REFERENCES objectives(id) NOT NULL,
+                content TEXT,
+                content_hash VARCHAR,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_by UUID REFERENCES users(id),
+                UNIQUE(objective_id)
+            )
+        """)
+
+    # Slice 9: Add objective_id to context_files for objective context files
+    # Check if column exists
+    try:
+        conn.execute("SELECT objective_id FROM context_files LIMIT 1")
+    except Exception:
+        logger.info("adding_objective_id_to_context_files")
+        # Note: DuckDB doesn't support ALTER TABLE with REFERENCES constraints
+        conn.execute("ALTER TABLE context_files ADD COLUMN objective_id UUID")
+
+    # Slice 9: Add objective_id to sessions for objective agent sessions
+    try:
+        conn.execute("SELECT objective_id FROM sessions LIMIT 1")
+    except Exception:
+        logger.info("adding_objective_id_to_sessions")
+        # Note: DuckDB doesn't support ALTER TABLE with REFERENCES constraints
+        conn.execute("ALTER TABLE sessions ADD COLUMN objective_id UUID")
+
+    # Slice 9: Add idea_objective_links table for graph edges
+    if "idea_objective_links" not in existing_tables:
+        logger.info("adding_idea_objective_links_table")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS idea_objective_links (
+                idea_id UUID REFERENCES ideas(id) NOT NULL,
+                objective_id UUID REFERENCES objectives(id) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (idea_id, objective_id)
+            )
+        """)
+
+    # Slice 9: Create DuckPGQ property graph
+    _create_property_graph(conn)
+
+
+def _create_property_graph(conn) -> None:
+    """Create the DuckPGQ property graph for idea-objective relationships."""
+    try:
+        # Check if graph already exists
+        result = conn.execute(
+            "SELECT * FROM duckpgq_tables() WHERE table_name = 'idea_graph'"
+        ).fetchone()
+        if result:
+            logger.info("property_graph_exists", graph="idea_graph")
+            return
+    except Exception:
+        # duckpgq_tables() may not exist if extension isn't loaded
+        pass
+
+    try:
+        # Drop existing graph if any (for clean recreation)
+        try:
+            conn.execute("DROP PROPERTY GRAPH IF EXISTS idea_graph")
+        except Exception:
+            pass
+
+        # Create the property graph
+        conn.execute("""
+            CREATE PROPERTY GRAPH idea_graph
+            VERTEX TABLES (
+                ideas,
+                objectives,
+                users,
+                organizations
+            )
+            EDGE TABLES (
+                idea_objective_links
+                    SOURCE KEY (idea_id) REFERENCES ideas (id)
+                    DESTINATION KEY (objective_id) REFERENCES objectives (id)
+                    LABEL supports,
+                idea_collaborators
+                    SOURCE KEY (idea_id) REFERENCES ideas (id)
+                    DESTINATION KEY (user_id) REFERENCES users (id)
+                    LABEL collaborates_on
+            )
+        """)
+        logger.info("property_graph_created", graph="idea_graph")
+    except Exception as e:
+        logger.warning(
+            "property_graph_creation_failed",
+            error=str(e),
+            note="DuckPGQ may not be available - graph features will use fallback SQL",
+        )
 
 
 def _create_schema(conn) -> None:
@@ -177,6 +292,7 @@ def _create_schema(conn) -> None:
         CREATE TABLE IF NOT EXISTS sessions (
             id UUID PRIMARY KEY,
             idea_id UUID REFERENCES ideas(id),
+            objective_id UUID REFERENCES objectives(id),
             user_id UUID REFERENCES users(id),
             agent_type VARCHAR NOT NULL,
             file_type VARCHAR,
@@ -197,23 +313,49 @@ def _create_schema(conn) -> None:
         )
     """)
 
-    # Context files (supporting materials for ideas)
+    # Context files (supporting materials for ideas or objectives)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS context_files (
             id UUID PRIMARY KEY,
             idea_id UUID REFERENCES ideas(id),
+            objective_id UUID REFERENCES objectives(id),
             filename VARCHAR NOT NULL,
             content TEXT,
             size_bytes INTEGER DEFAULT 0,
             created_by UUID REFERENCES users(id),
             created_by_agent BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Objective files (single markdown file per objective)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS objective_files (
+            id UUID PRIMARY KEY,
+            objective_id UUID REFERENCES objectives(id) NOT NULL,
+            content TEXT,
+            content_hash VARCHAR,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(idea_id, filename)
+            updated_by UUID REFERENCES users(id),
+            UNIQUE(objective_id)
+        )
+    """)
+
+    # Idea-Objective links (for graph edges)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS idea_objective_links (
+            idea_id UUID REFERENCES ideas(id) NOT NULL,
+            objective_id UUID REFERENCES objectives(id) NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (idea_id, objective_id)
         )
     """)
 
     logger.info("schema_created")
+
+    # Create property graph after all tables exist
+    _create_property_graph(conn)
 
 
 def _seed_dev_data(conn) -> None:

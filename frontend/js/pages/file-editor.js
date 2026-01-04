@@ -2,7 +2,7 @@
  * File Editor Page
  *
  * 50/50 layout with agent chat (left) and canvas (right).
- * Supports editing both kernel files and context files.
+ * Supports editing kernel files, context files, objective files, and objective context files.
  */
 
 import { Canvas } from '../concepts/canvas.js';
@@ -19,29 +19,38 @@ const KERNEL_FILE_DISPLAY_NAMES = {
 
 /**
  * File Editor - manages the file editing page
- * Supports both kernel files and context files.
+ * Supports kernel files, context files, objective files, and objective context files.
  */
 export class FileEditor {
     /**
      * Create a FileEditor instance.
      * @param {HTMLElement} container - The container element
-     * @param {string} ideaId - The idea ID
-     * @param {string} fileIdentifier - File type (kernel) or file ID (context)
-     * @param {string} mode - 'kernel' or 'context'
+     * @param {string} entityId - The idea ID or objective ID
+     * @param {string} fileIdentifier - File type (kernel/objective) or file ID (context)
+     * @param {string} mode - 'kernel', 'context', 'objective', or 'objective_context'
      */
-    constructor(container, ideaId, fileIdentifier, mode = 'kernel') {
+    constructor(container, entityId, fileIdentifier, mode = 'kernel') {
         this.container = container;
-        this.ideaId = ideaId;
+        this.entityId = entityId;
         this.fileIdentifier = fileIdentifier;
         this.mode = mode;
 
-        // For kernel files, fileIdentifier is the type; for context, it's the ID
+        // Determine file type
         this.isKernelFile = mode === 'kernel';
+        this.isContextFile = mode === 'context';
+        this.isObjectiveFile = mode === 'objective';
+        this.isObjectiveContextFile = mode === 'objective_context';
+
+        // For backwards compatibility
+        this.ideaId = (this.isKernelFile || this.isContextFile) ? entityId : null;
+        this.objectiveId = (this.isObjectiveFile || this.isObjectiveContextFile) ? entityId : null;
+
+        // File identifiers
         this.fileType = this.isKernelFile ? fileIdentifier : null;
-        this.fileId = this.isKernelFile ? null : fileIdentifier;
+        this.fileId = (this.isContextFile || this.isObjectiveContextFile) ? fileIdentifier : null;
 
         // State
-        this.file = null; // Will hold either kernel file or context file data
+        this.file = null;
         this.displayName = '';
         this.canvas = null;
         this.chat = null;
@@ -49,6 +58,7 @@ export class FileEditor {
         this.isSaving = false;
         this.isDeleting = false;
         this.error = null;
+        this.isAdmin = false;
 
         this.render();
     }
@@ -62,11 +72,23 @@ export class FileEditor {
         this.render();
 
         try {
+            // Check admin status for objective files
+            if (this.isObjectiveFile || this.isObjectiveContextFile) {
+                const user = await apiClient.getCurrentUser();
+                this.isAdmin = user.role === 'org_admin';
+            }
+
             if (this.isKernelFile) {
                 this.file = await apiClient.getKernelFile(this.ideaId, this.fileType);
                 this.displayName = KERNEL_FILE_DISPLAY_NAMES[this.fileType] || this.fileType;
-            } else {
+            } else if (this.isContextFile) {
                 this.file = await apiClient.getContextFileById(this.ideaId, this.fileId);
+                this.displayName = this.file.filename;
+            } else if (this.isObjectiveFile) {
+                this.file = await apiClient.getObjectiveFile(this.objectiveId);
+                this.displayName = 'Objective.md';
+            } else if (this.isObjectiveContextFile) {
+                this.file = await apiClient.getObjectiveContextFileById(this.objectiveId, this.fileId);
                 this.displayName = this.file.filename;
             }
 
@@ -119,12 +141,24 @@ export class FileEditor {
                     this._updateCompletionStatus(isComplete);
                 },
             });
-        } else {
+        } else if (this.isContextFile) {
             // Context file: use ContextAgent
             this.chat = new Chat(chatContainer, {
                 ideaId: this.ideaId,
                 agentType: 'context',
                 contextFileId: this.fileId,
+            });
+        } else if (this.isObjectiveFile) {
+            // Objective file: use ObjectiveAgent
+            this.chat = new Chat(chatContainer, {
+                objectiveId: this.objectiveId,
+                agentType: 'objective',
+            });
+        } else if (this.isObjectiveContextFile) {
+            // Objective context file: use ObjectiveAgent (same as objective file)
+            this.chat = new Chat(chatContainer, {
+                objectiveId: this.objectiveId,
+                agentType: 'objective',
             });
         }
     }
@@ -169,6 +203,12 @@ export class FileEditor {
     async _handleSave() {
         if (!this.canvas || this.isSaving) return;
 
+        // Check admin status for objective files
+        if ((this.isObjectiveFile || this.isObjectiveContextFile) && !this.isAdmin) {
+            alert('Only admins can edit objective files.');
+            return;
+        }
+
         const content = this.canvas.state.content;
 
         this.isSaving = true;
@@ -177,21 +217,59 @@ export class FileEditor {
         try {
             if (this.isKernelFile) {
                 await apiClient.updateKernelFile(this.ideaId, this.fileType, content);
-            } else {
+            } else if (this.isContextFile) {
                 await apiClient.updateContextFile(this.ideaId, this.fileId, content);
+            } else if (this.isObjectiveFile) {
+                await apiClient.updateObjectiveFile(this.objectiveId, content);
+            } else if (this.isObjectiveContextFile) {
+                await apiClient.updateObjectiveContextFile(this.objectiveId, this.fileId, content);
             }
 
             // Update original content so isDirty becomes false
             this.canvas.load(content);
 
             // Navigate back to workspace
-            window.location.hash = `#/ideas/${this.ideaId}`;
+            this._navigateBack();
         } catch (error) {
             console.error('Failed to save file:', error);
             alert(`Failed to save: ${error.message}`);
             this.isSaving = false;
             this._updateSaveButtonState(true);
         }
+    }
+
+    /**
+     * Navigate back to the appropriate workspace.
+     * @private
+     */
+    _navigateBack() {
+        if (this.isObjectiveFile || this.isObjectiveContextFile) {
+            window.location.hash = `#/objectives/${this.objectiveId}`;
+        } else {
+            window.location.hash = `#/ideas/${this.ideaId}`;
+        }
+    }
+
+    /**
+     * Get the back link URL.
+     * @private
+     */
+    _getBackLink() {
+        if (this.isObjectiveFile || this.isObjectiveContextFile) {
+            return `#/objectives/${this.objectiveId}`;
+        }
+        return `#/ideas/${this.ideaId}`;
+    }
+
+    /**
+     * Get the back link text.
+     * @private
+     */
+    _getBackLinkText() {
+        if (this.isObjectiveFile || this.isObjectiveContextFile) {
+            return '← Back to Objective';
+        }
+        return '← Back to Idea';
     }
 
     /**
@@ -205,7 +283,7 @@ export class FileEditor {
         }
 
         // Navigate back to workspace
-        window.location.hash = `#/ideas/${this.ideaId}`;
+        this._navigateBack();
     }
 
     /**
@@ -213,7 +291,14 @@ export class FileEditor {
      * @private
      */
     async _handleDelete() {
-        if (this.isKernelFile || this.isDeleting) return;
+        // Only allow deleting context files (not kernel or objective files)
+        if (this.isKernelFile || this.isObjectiveFile || this.isDeleting) return;
+
+        // Check admin status for objective context files
+        if (this.isObjectiveContextFile && !this.isAdmin) {
+            alert('Only admins can delete objective context files.');
+            return;
+        }
 
         const confirmed = confirm(`Delete "${this.displayName}"? This cannot be undone.`);
         if (!confirmed) return;
@@ -226,9 +311,13 @@ export class FileEditor {
         }
 
         try {
-            await apiClient.deleteContextFile(this.ideaId, this.fileId);
+            if (this.isContextFile) {
+                await apiClient.deleteContextFile(this.ideaId, this.fileId);
+            } else if (this.isObjectiveContextFile) {
+                await apiClient.deleteObjectiveContextFile(this.objectiveId, this.fileId);
+            }
             // Navigate back to workspace
-            window.location.hash = `#/ideas/${this.ideaId}`;
+            this._navigateBack();
         } catch (error) {
             console.error('Failed to delete file:', error);
             alert(`Failed to delete: ${error.message}`);
@@ -259,7 +348,7 @@ export class FileEditor {
             this.container.innerHTML = `
                 <div class="file-editor">
                     <div class="file-editor-header">
-                        <a href="#/ideas/${this.ideaId}" class="back-link">← Back to Idea</a>
+                        <a href="${this._getBackLink()}" class="back-link">${this._getBackLinkText()}</a>
                     </div>
                     <div class="file-editor-error">
                         <h2>Error</h2>
@@ -287,30 +376,41 @@ export class FileEditor {
 
         // Build file badge for context files
         let badgeHtml = '';
-        if (!this.isKernelFile) {
+        if (this.isContextFile || this.isObjectiveContextFile) {
             const badgeClass = this.file.created_by_agent ? 'badge-agent' : 'badge-user';
             const badgeText = this.file.created_by_agent ? 'AI Generated' : 'User Created';
             badgeHtml = `<span class="file-badge ${badgeClass}">${badgeText}</span>`;
         }
 
-        // Build delete button (context files only)
+        // Build objective file badge
+        if (this.isObjectiveFile) {
+            badgeHtml = `<span class="file-badge badge-objective">Objective</span>`;
+        }
+
+        // Build delete button (context files only, not kernel or objective files)
         let deleteButtonHtml = '';
-        if (!this.isKernelFile) {
+        if (this.isContextFile || this.isObjectiveContextFile) {
+            const canDelete = this.isContextFile || (this.isObjectiveContextFile && this.isAdmin);
             deleteButtonHtml = `
-                <button class="btn btn-danger file-editor-delete">
+                <button class="btn btn-danger file-editor-delete" ${!canDelete ? 'disabled' : ''}>
                     Delete
                 </button>
             `;
         }
 
+        // Check if user can edit (for objective files, admin only)
+        const canEdit = !this.isObjectiveFile || this.isAdmin;
+        const readOnlyNote = !canEdit ? '<span class="read-only-badge">Read Only</span>' : '';
+
         this.container.innerHTML = `
             <div class="file-editor">
                 <div class="file-editor-header">
-                    <a href="#/ideas/${this.ideaId}" class="back-link">← Back to Idea</a>
+                    <a href="${this._getBackLink()}" class="back-link">${this._getBackLinkText()}</a>
                     <div class="file-editor-title">
                         <h1>${this._escapeHtml(this.displayName)}</h1>
                         ${completionHtml}
                         ${badgeHtml}
+                        ${readOnlyNote}
                     </div>
                     <div class="file-editor-actions-top">
                         <button class="btn btn-ghost file-editor-history" disabled title="History (coming soon)">

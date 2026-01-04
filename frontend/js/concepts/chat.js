@@ -24,15 +24,17 @@ export class Chat {
      * Create a Chat instance.
      * @param {HTMLElement} container - The container element
      * @param {Object} options - Configuration options
-     * @param {string} options.ideaId - The idea ID
+     * @param {string} [options.ideaId] - The idea ID (for idea-based chats)
+     * @param {string} [options.objectiveId] - The objective ID (for objective-based chats)
      * @param {string} [options.fileType] - The kernel file type (for kernel file agents)
-     * @param {string} [options.agentType] - The agent type (for idea-level agents like coherence, context)
+     * @param {string} [options.agentType] - The agent type (for idea-level agents like coherence, context, objective)
      * @param {string} [options.contextFileId] - The context file ID (for context agent)
      * @param {Function} [options.onCompletionChange] - Callback when completion status changes
      */
     constructor(container, options) {
         this.container = container;
-        this.ideaId = options.ideaId;
+        this.ideaId = options.ideaId || null;
+        this.objectiveId = options.objectiveId || null;
         this.fileType = options.fileType || null;
         this.agentType = options.agentType || null;
         this.contextFileId = options.contextFileId || null;
@@ -41,6 +43,7 @@ export class Chat {
         // Determine chat type
         this.isCoherenceChat = this.agentType === 'coherence';
         this.isContextChat = this.agentType === 'context';
+        this.isObjectiveChat = this.agentType === 'objective';
 
         // State
         this.messages = [];
@@ -72,7 +75,9 @@ export class Chat {
     async _loadExistingSession() {
         try {
             let response;
-            if (this.isCoherenceChat) {
+            if (this.isObjectiveChat) {
+                response = await apiClient.getObjectiveSessions(this.objectiveId);
+            } else if (this.isCoherenceChat) {
                 response = await apiClient.getCoherenceSessions(this.ideaId);
             } else if (this.isContextChat) {
                 // Context files don't have a sessions list endpoint yet
@@ -97,7 +102,9 @@ export class Chat {
      */
     async loadSession(sessionId) {
         try {
-            const response = await apiClient.getSessionWithMessages(this.ideaId, sessionId);
+            // For objective chats, we use the objectiveId; for idea chats, we use ideaId
+            const entityId = this.objectiveId || this.ideaId;
+            const response = await apiClient.getSessionWithMessages(entityId, sessionId);
             this.sessionId = sessionId;
             this.messages = response.messages.map(m => ({
                 role: m.role,
@@ -129,7 +136,13 @@ export class Chat {
 
         try {
             let response;
-            if (this.isCoherenceChat) {
+            if (this.isObjectiveChat) {
+                response = await apiClient.sendObjectiveChatMessage(
+                    this.objectiveId,
+                    message,
+                    this.sessionId
+                );
+            } else if (this.isCoherenceChat) {
                 response = await apiClient.sendCoherenceChatMessage(
                     this.ideaId,
                     message,

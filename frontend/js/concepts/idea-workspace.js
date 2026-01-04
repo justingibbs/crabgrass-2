@@ -25,6 +25,7 @@ export class IdeaWorkspace {
         this.idea = null;
         this.kernelFiles = [];
         this.contextFiles = [];
+        this.objectives = []; // Available objectives for linking
         this.loading = true;
         this.error = null;
         this.titleSaveTimeout = null;
@@ -44,15 +45,17 @@ export class IdeaWorkspace {
         this.render();
 
         try {
-            // Load idea and context files in parallel
-            const [idea, contextFilesResponse] = await Promise.all([
+            // Load idea, context files, and objectives in parallel
+            const [idea, contextFilesResponse, objectivesResponse] = await Promise.all([
                 apiClient.getIdea(this.ideaId),
                 apiClient.getContextFiles(this.ideaId).catch(() => ({ files: [] })),
+                apiClient.getObjectives().catch(() => ({ objectives: [] })),
             ]);
 
             this.idea = idea;
             this.kernelFiles = idea.kernel_files || [];
             this.contextFiles = contextFilesResponse.files || [];
+            this.objectives = objectivesResponse.objectives || [];
             this.loading = false;
             this.render();
             this.initChildConcepts();
@@ -114,6 +117,89 @@ export class IdeaWorkspace {
                 console.error('Failed to save title:', err);
             }
         }, 500);
+    }
+
+    /**
+     * Link this idea to an objective.
+     * @param {string} objectiveId - The objective ID to link to
+     */
+    async linkToObjective(objectiveId) {
+        try {
+            await apiClient.linkIdeaToObjective(this.ideaId, objectiveId);
+            this.idea.objective_id = objectiveId;
+            this.render();
+            this.initChildConcepts();
+            console.log('Linked to objective:', objectiveId);
+        } catch (err) {
+            console.error('Failed to link to objective:', err);
+            alert('Failed to link to objective: ' + err.message);
+        }
+    }
+
+    /**
+     * Unlink this idea from its current objective.
+     */
+    async unlinkFromObjective() {
+        try {
+            await apiClient.unlinkIdeaFromObjective(this.ideaId);
+            this.idea.objective_id = null;
+            this.render();
+            this.initChildConcepts();
+            console.log('Unlinked from objective');
+        } catch (err) {
+            console.error('Failed to unlink from objective:', err);
+            alert('Failed to unlink from objective: ' + err.message);
+        }
+    }
+
+    /**
+     * Get the current linked objective.
+     * @returns {Object|null} The linked objective or null
+     */
+    _getLinkedObjective() {
+        if (!this.idea.objective_id) return null;
+        return this.objectives.find(obj => obj.id === this.idea.objective_id) || null;
+    }
+
+    /**
+     * Render the objective selector section.
+     * @private
+     */
+    _renderObjectiveSelector() {
+        const linkedObjective = this._getLinkedObjective();
+
+        if (linkedObjective) {
+            // Show linked objective with option to unlink
+            return `
+                <div class="workspace-objective">
+                    <span class="meta-label">Objective:</span>
+                    <a href="#/objectives/${linkedObjective.id}" class="objective-link">${this.escapeHtml(linkedObjective.title)}</a>
+                    <button class="link-button" id="unlink-objective-btn">Unlink</button>
+                </div>
+            `;
+        }
+
+        // Show dropdown to select objective
+        if (this.objectives.length === 0) {
+            return `
+                <div class="workspace-objective">
+                    <span class="meta-label">Objective:</span>
+                    <span class="meta-value">No objectives available</span>
+                </div>
+            `;
+        }
+
+        return `
+            <div class="workspace-objective">
+                <span class="meta-label">Objective:</span>
+                <select id="objective-selector" class="objective-select">
+                    <option value="">Select an objective...</option>
+                    ${this.objectives.map(obj => `
+                        <option value="${obj.id}">${this.escapeHtml(obj.title)}</option>
+                    `).join('')}
+                </select>
+            </div>
+        `;
     }
 
     /**
@@ -382,13 +468,7 @@ export class IdeaWorkspace {
                         <div id="kernel-status-container"></div>
                     </div>
                     <div class="workspace-meta-row">
-                        <div class="workspace-objective">
-                            <span class="meta-label">Objective:</span>
-                            <span class="meta-value">
-                                ${this.idea.objective_id ? 'Linked' : 'Not selected'}
-                            </span>
-                            <button class="link-button" disabled>Select</button>
-                        </div>
+                        ${this._renderObjectiveSelector()}
                         <div class="workspace-status">
                             <span class="meta-label">Status:</span>
                             <span class="idea-status status-${this.idea.status}">${this.idea.status}</span>
@@ -465,6 +545,25 @@ export class IdeaWorkspace {
                     clearTimeout(this.titleSaveTimeout);
                 }
                 this.updateTitle(e.target.value);
+            });
+        }
+
+        // Objective selector
+        const objectiveSelector = document.getElementById('objective-selector');
+        if (objectiveSelector) {
+            objectiveSelector.addEventListener('change', (e) => {
+                const objectiveId = e.target.value;
+                if (objectiveId) {
+                    this.linkToObjective(objectiveId);
+                }
+            });
+        }
+
+        // Unlink objective button
+        const unlinkBtn = document.getElementById('unlink-objective-btn');
+        if (unlinkBtn) {
+            unlinkBtn.addEventListener('click', () => {
+                this.unlinkFromObjective();
             });
         }
 

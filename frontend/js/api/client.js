@@ -311,6 +311,208 @@ export const apiClient = {
             body: JSON.stringify(body),
         });
     },
+
+    // --- Idea-Objective Links ---
+
+    /**
+     * Link an idea to an objective.
+     * @param {string} ideaId - Idea ID
+     * @param {string} objectiveId - Objective ID
+     */
+    async linkIdeaToObjective(ideaId, objectiveId) {
+        return request(`/api/ideas/${ideaId}/objective`, {
+            method: 'POST',
+            body: JSON.stringify({ objective_id: objectiveId }),
+        });
+    },
+
+    /**
+     * Unlink an idea from its objective.
+     * @param {string} ideaId - Idea ID
+     */
+    async unlinkIdeaFromObjective(ideaId) {
+        return request(`/api/ideas/${ideaId}/objective`, {
+            method: 'DELETE',
+        });
+    },
+
+    // --- Objectives ---
+
+    /**
+     * Get list of objectives for the current user's organization.
+     */
+    async getObjectives() {
+        return request('/api/objectives');
+    },
+
+    /**
+     * Create a new objective (admin only).
+     * @param {Object} data - Objective data
+     * @param {string} data.title - Objective title
+     * @param {string} [data.description] - Optional description
+     * @param {string} [data.owner_id] - Optional owner user ID
+     * @param {string} [data.timeframe] - Optional timeframe (e.g., 'Q1 2025')
+     */
+    async createObjective(data) {
+        return request('/api/objectives', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    /**
+     * Get an objective by ID.
+     * @param {string} objectiveId - Objective ID
+     */
+    async getObjective(objectiveId) {
+        return request(`/api/objectives/${objectiveId}`);
+    },
+
+    /**
+     * Update an objective (admin only).
+     * @param {string} objectiveId - Objective ID
+     * @param {Object} data - Fields to update
+     */
+    async updateObjective(objectiveId, data) {
+        return request(`/api/objectives/${objectiveId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    },
+
+    /**
+     * Archive (soft delete) an objective (admin only).
+     * @param {string} objectiveId - Objective ID
+     */
+    async archiveObjective(objectiveId) {
+        return request(`/api/objectives/${objectiveId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    /**
+     * Get ideas linked to an objective.
+     * @param {string} objectiveId - Objective ID
+     */
+    async getObjectiveIdeas(objectiveId) {
+        return request(`/api/objectives/${objectiveId}/ideas`);
+    },
+
+    // --- Objective File ---
+
+    /**
+     * Get an objective's file content.
+     * @param {string} objectiveId - Objective ID
+     */
+    async getObjectiveFile(objectiveId) {
+        return request(`/api/objectives/${objectiveId}/file`);
+    },
+
+    /**
+     * Update an objective's file content (admin only).
+     * @param {string} objectiveId - Objective ID
+     * @param {string} content - New content
+     */
+    async updateObjectiveFile(objectiveId, content) {
+        return request(`/api/objectives/${objectiveId}/file`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        });
+    },
+
+    // --- Objective Agent Chat ---
+
+    /**
+     * Send a chat message to the ObjectiveAgent.
+     * @param {string} objectiveId - Objective ID
+     * @param {string} message - The message to send
+     * @param {string} [sessionId] - Optional session ID to continue conversation
+     */
+    async sendObjectiveChatMessage(objectiveId, message, sessionId = null) {
+        const body = { message };
+        if (sessionId) {
+            body.session_id = sessionId;
+        }
+        return request(`/api/objectives/${objectiveId}/chat`, {
+            method: 'POST',
+            body: JSON.stringify(body),
+        });
+    },
+
+    /**
+     * Check alignment between an idea and an objective.
+     * @param {string} objectiveId - Objective ID
+     * @param {string} ideaId - Idea ID
+     */
+    async checkObjectiveAlignment(objectiveId, ideaId) {
+        return request(`/api/objectives/${objectiveId}/alignment/${ideaId}`, {
+            method: 'POST',
+        });
+    },
+
+    /**
+     * Get list of sessions for an objective.
+     * @param {string} objectiveId - Objective ID
+     */
+    async getObjectiveSessions(objectiveId) {
+        return request(`/api/objectives/${objectiveId}/sessions`);
+    },
+
+    // --- Objective Context Files ---
+
+    /**
+     * Get list of context files for an objective.
+     * @param {string} objectiveId - Objective ID
+     */
+    async getObjectiveContextFiles(objectiveId) {
+        return request(`/api/objectives/${objectiveId}/context`);
+    },
+
+    /**
+     * Get an objective context file by ID with content.
+     * @param {string} objectiveId - Objective ID
+     * @param {string} fileId - File ID
+     */
+    async getObjectiveContextFileById(objectiveId, fileId) {
+        return request(`/api/objectives/${objectiveId}/context/${fileId}`);
+    },
+
+    /**
+     * Create a new objective context file.
+     * @param {string} objectiveId - Objective ID
+     * @param {string} filename - Filename (must end in .md)
+     * @param {string} content - Initial content
+     */
+    async createObjectiveContextFile(objectiveId, filename, content = '') {
+        return request(`/api/objectives/${objectiveId}/context`, {
+            method: 'POST',
+            body: JSON.stringify({ filename, content }),
+        });
+    },
+
+    /**
+     * Update an objective context file's content.
+     * @param {string} objectiveId - Objective ID
+     * @param {string} fileId - File ID
+     * @param {string} content - New content
+     */
+    async updateObjectiveContextFile(objectiveId, fileId, content) {
+        return request(`/api/objectives/${objectiveId}/context/${fileId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ content }),
+        });
+    },
+
+    /**
+     * Delete an objective context file.
+     * @param {string} objectiveId - Objective ID
+     * @param {string} fileId - File ID
+     */
+    async deleteObjectiveContextFile(objectiveId, fileId) {
+        return request(`/api/objectives/${objectiveId}/context/${fileId}`, {
+            method: 'DELETE',
+        });
+    },
 };
 
 export default apiClient;

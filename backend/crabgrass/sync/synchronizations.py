@@ -14,12 +14,17 @@ from ..concepts.idea import Idea, IdeaConcept
 from ..concepts.kernel_file import KernelFileConcept
 from ..concepts.version import version_concept
 from ..concepts.session import session_concept
+from ..concepts.objective import Objective
+from ..concepts.objective_file import ObjectiveFileConcept
+from ..concepts.graph import GraphConcept
 
 logger = structlog.get_logger()
 
 # Concept instances
 idea_concept = IdeaConcept()
 kernel_file_concept = KernelFileConcept()
+objective_file_concept = ObjectiveFileConcept()
+graph_concept = GraphConcept()
 
 
 def on_idea_created(idea: Idea) -> None:
@@ -52,7 +57,10 @@ def on_idea_created(idea: Idea) -> None:
     kernel_content = {kf.file_type: kf.content for kf in kernel_files}
     version_concept.write_initial_files(idea.id, kernel_content)
 
-    # TODO Slice 9: if idea.objective_id: Graph.connect(idea.id, idea.objective_id, "SUPPORTS")
+    # If idea has an objective, create graph edge
+    if idea.objective_id:
+        graph_concept.link_idea_to_objective(idea.id, idea.objective_id)
+
     # TODO Slice 5: Session.create(idea.id, idea.creator_id, "coherence")
 
 
@@ -68,7 +76,40 @@ def on_idea_linked_to_objective(idea_id, objective_id) -> None:
         objective_id=str(objective_id),
     )
 
-    # TODO Slice 9: Graph.connect(idea_id, objective_id, "SUPPORTS")
+    # Create graph edge
+    graph_concept.link_idea_to_objective(idea_id, objective_id)
+
+
+def on_idea_unlinked_from_objective(idea_id, objective_id) -> None:
+    """
+    sync IdeaUnlinkedFromObjective:
+        when Idea.objective cleared:
+            → Graph.disconnect(idea_id, objective_id, "SUPPORTS")
+    """
+    logger.info(
+        "sync_idea_unlinked_from_objective",
+        idea_id=str(idea_id),
+        objective_id=str(objective_id),
+    )
+
+    # Remove graph edge
+    graph_concept.unlink_idea_from_objective(idea_id, objective_id)
+
+
+def on_objective_created(objective: Objective, user_id) -> None:
+    """
+    sync ObjectiveCreated:
+        when Objective.create():
+            → ObjectiveFile.initialize(objective_id)
+    """
+    logger.info(
+        "sync_objective_created",
+        objective_id=str(objective.id),
+        title=objective.title,
+    )
+
+    # Initialize objective file with template
+    objective_file_concept.initialize(objective.id, user_id)
 
 
 def on_kernel_file_updated(idea_id, file_type, content) -> None:

@@ -4,7 +4,7 @@ import re
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Optional, List
 from uuid import UUID
 
 import structlog
@@ -24,7 +24,8 @@ class ContextFile:
     """Represents a context file."""
 
     id: UUID
-    idea_id: UUID
+    idea_id: Optional[UUID]  # For idea context files
+    objective_id: Optional[UUID]  # For objective context files
     filename: str
     content: str
     size_bytes: int
@@ -62,9 +63,10 @@ class ContextFileConcept:
 
     def create(
         self,
-        idea_id: UUID,
-        filename: str,
-        content: str,
+        idea_id: Optional[UUID] = None,
+        objective_id: Optional[UUID] = None,
+        filename: str = "",
+        content: str = "",
         user_id: Optional[UUID] = None,
         created_by_agent: bool = False,
     ) -> ContextFile:
@@ -72,7 +74,8 @@ class ContextFileConcept:
         Create a new context file.
 
         Args:
-            idea_id: Parent idea UUID
+            idea_id: Parent idea UUID (for idea context files)
+            objective_id: Parent objective UUID (for objective context files)
             filename: Filename (must be valid .md format)
             content: File content
             user_id: User creating the file (None if agent)
@@ -82,8 +85,13 @@ class ContextFileConcept:
             The created ContextFile
 
         Raises:
-            ValueError: If filename or content is invalid
+            ValueError: If filename or content is invalid, or if neither idea_id nor objective_id provided
         """
+        if not idea_id and not objective_id:
+            raise ValueError("Either idea_id or objective_id must be provided")
+        if idea_id and objective_id:
+            raise ValueError("Cannot specify both idea_id and objective_id")
+
         self._validate_filename(filename)
         size_bytes = self._validate_size(content)
 
@@ -94,12 +102,13 @@ class ContextFileConcept:
             db.execute(
                 """
                 INSERT INTO context_files
-                (id, idea_id, filename, content, size_bytes, created_by, created_by_agent, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                (id, idea_id, objective_id, filename, content, size_bytes, created_by, created_by_agent, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 [
                     str(file_id),
-                    str(idea_id),
+                    str(idea_id) if idea_id else None,
+                    str(objective_id) if objective_id else None,
                     filename,
                     content,
                     size_bytes,
@@ -110,16 +119,18 @@ class ContextFileConcept:
                 ],
             )
 
-        # Write to JJ repository
-        idea_id_str = str(idea_id)
-        if jj_repository.exists(idea_id_str):
-            file_path = f"context/{filename}"
-            jj_repository.write_file(idea_id_str, file_path, content)
-            jj_repository.commit(idea_id_str, f"Add context file: {filename}")
+        # Write to JJ repository (only for idea context files)
+        if idea_id:
+            idea_id_str = str(idea_id)
+            if jj_repository.exists(idea_id_str):
+                file_path = f"context/{filename}"
+                jj_repository.write_file(idea_id_str, file_path, content)
+                jj_repository.commit(idea_id_str, f"Add context file: {filename}")
 
         logger.info(
             "context_file_created",
-            idea_id=str(idea_id),
+            idea_id=str(idea_id) if idea_id else None,
+            objective_id=str(objective_id) if objective_id else None,
             filename=filename,
             size_bytes=size_bytes,
             created_by_agent=created_by_agent,
@@ -128,6 +139,7 @@ class ContextFileConcept:
         return ContextFile(
             id=file_id,
             idea_id=idea_id,
+            objective_id=objective_id,
             filename=filename,
             content=content,
             size_bytes=size_bytes,
@@ -151,7 +163,7 @@ class ContextFileConcept:
         with get_db() as db:
             result = db.execute(
                 """
-                SELECT id, idea_id, filename, content, size_bytes,
+                SELECT id, idea_id, objective_id, filename, content, size_bytes,
                        created_by, created_by_agent, created_at, updated_at
                 FROM context_files
                 WHERE idea_id = ? AND filename = ?
@@ -177,7 +189,7 @@ class ContextFileConcept:
         with get_db() as db:
             result = db.execute(
                 """
-                SELECT id, idea_id, filename, content, size_bytes,
+                SELECT id, idea_id, objective_id, filename, content, size_bytes,
                        created_by, created_by_agent, created_at, updated_at
                 FROM context_files
                 WHERE id = ?
@@ -286,7 +298,7 @@ class ContextFileConcept:
                 created_by_agent=created_by_agent,
             )
 
-    def list(self, idea_id: UUID) -> list[ContextFile]:
+    def list(self, idea_id: UUID) -> List[ContextFile]:
         """
         List all context files for an idea.
 
@@ -299,13 +311,37 @@ class ContextFileConcept:
         with get_db() as db:
             results = db.execute(
                 """
-                SELECT id, idea_id, filename, content, size_bytes,
+                SELECT id, idea_id, objective_id, filename, content, size_bytes,
                        created_by, created_by_agent, created_at, updated_at
                 FROM context_files
                 WHERE idea_id = ?
                 ORDER BY created_at DESC
                 """,
                 [str(idea_id)],
+            ).fetchall()
+
+            return [self._row_to_context_file(row) for row in results]
+
+    def list_for_objective(self, objective_id: UUID) -> List[ContextFile]:
+        """
+        List all context files for an objective.
+
+        Args:
+            objective_id: Parent objective UUID
+
+        Returns:
+            List of ContextFiles, ordered by created_at desc
+        """
+        with get_db() as db:
+            results = db.execute(
+                """
+                SELECT id, idea_id, objective_id, filename, content, size_bytes,
+                       created_by, created_by_agent, created_at, updated_at
+                FROM context_files
+                WHERE objective_id = ?
+                ORDER BY created_at DESC
+                """,
+                [str(objective_id)],
             ).fetchall()
 
             return [self._row_to_context_file(row) for row in results]
@@ -371,16 +407,19 @@ class ContextFileConcept:
                 return val
             return datetime.fromisoformat(val)
 
+        # Row order: id, idea_id, objective_id, filename, content, size_bytes,
+        #            created_by, created_by_agent, created_at, updated_at
         return ContextFile(
             id=to_uuid(row[0]),
             idea_id=to_uuid(row[1]),
-            filename=row[2],
-            content=row[3] or "",
-            size_bytes=row[4] or 0,
-            created_by=to_uuid(row[5]),
-            created_by_agent=bool(row[6]),
-            created_at=to_datetime(row[7]),
-            updated_at=to_datetime(row[8]),
+            objective_id=to_uuid(row[2]),
+            filename=row[3],
+            content=row[4] or "",
+            size_bytes=row[5] or 0,
+            created_by=to_uuid(row[6]),
+            created_by_agent=bool(row[7]),
+            created_at=to_datetime(row[8]),
+            updated_at=to_datetime(row[9]),
         )
 
 

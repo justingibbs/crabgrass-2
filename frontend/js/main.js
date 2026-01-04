@@ -7,6 +7,7 @@
 import { UserSwitcher } from './concepts/user-switcher.js';
 import { IdeaList } from './concepts/idea-list.js';
 import { IdeaWorkspace } from './concepts/idea-workspace.js';
+import { ObjectiveWorkspace } from './concepts/objective-workspace.js';
 import { FileEditor } from './pages/file-editor.js';
 
 /**
@@ -153,16 +154,24 @@ const routes = {
     },
 
     '/objectives/:id': (params, container) => {
-        container.innerHTML = `
-            <div class="route-placeholder">
-                <h1>Objective Workspace</h1>
-                <p>Viewing objective: ${params.id}</p>
-                <p style="margin-top: var(--spacing-md); color: var(--text-muted);">
-                    This screen will be implemented in Slice 9.
-                </p>
-                <a href="#/" style="margin-top: var(--spacing-md);">← Back to Home</a>
-            </div>
-        `;
+        // Use ObjectiveWorkspace concept to render and manage the objective workspace
+        const workspace = new ObjectiveWorkspace(container, params.id);
+        window.crabgrass.objectiveWorkspace = workspace;
+        workspace.load();
+    },
+
+    '/objectives/:id/file': (params, container) => {
+        // Objective file editor
+        const fileEditor = new FileEditor(container, params.id, 'objective', 'objective');
+        window.crabgrass.fileEditor = fileEditor;
+        fileEditor.load();
+    },
+
+    '/objectives/:id/context/:fileId': (params, container) => {
+        // Objective context file editor
+        const fileEditor = new FileEditor(container, params.id, params.fileId, 'objective_context');
+        window.crabgrass.fileEditor = fileEditor;
+        fileEditor.load();
     },
 };
 

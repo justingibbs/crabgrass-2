@@ -470,3 +470,97 @@ async def get_kernel_file_history(
             for v in versions
         ]
     )
+
+
+# --- Objective Linking Routes ---
+
+
+class LinkObjectiveRequest(BaseModel):
+    """Request to link an idea to an objective."""
+
+    objective_id: str
+
+
+class ObjectiveLinkResponse(BaseModel):
+    """Response after linking/unlinking objective."""
+
+    idea_id: str
+    objective_id: Optional[str]
+    status: str
+
+
+@router.post("/{idea_id}/objective", response_model=ObjectiveLinkResponse)
+async def link_idea_to_objective(
+    idea_id: UUID,
+    request: LinkObjectiveRequest,
+    crabgrass_dev_user: Optional[str] = Cookie(default=None),
+):
+    """Link an idea to an objective."""
+    from ...sync.synchronizations import on_idea_linked_to_objective
+
+    user_id, org_id = get_current_user_info(crabgrass_dev_user)
+
+    # Verify idea exists and user has access
+    idea = idea_concept.get(idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    if idea.org_id != org_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    objective_id = UUID(request.objective_id)
+
+    # Trigger synchronization (creates graph edge and updates idea.objective_id)
+    on_idea_linked_to_objective(idea_id, objective_id)
+
+    logger.info(
+        "idea_linked_to_objective",
+        idea_id=str(idea_id),
+        objective_id=str(objective_id),
+    )
+
+    return ObjectiveLinkResponse(
+        idea_id=str(idea_id),
+        objective_id=str(objective_id),
+        status="linked",
+    )
+
+
+@router.delete("/{idea_id}/objective", response_model=ObjectiveLinkResponse)
+async def unlink_idea_from_objective(
+    idea_id: UUID,
+    crabgrass_dev_user: Optional[str] = Cookie(default=None),
+):
+    """Unlink an idea from its objective."""
+    from ...sync.synchronizations import on_idea_unlinked_from_objective
+    from ...concepts.graph import GraphConcept
+
+    user_id, org_id = get_current_user_info(crabgrass_dev_user)
+
+    # Verify idea exists and user has access
+    idea = idea_concept.get(idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    if idea.org_id != org_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Get current objective before unlinking
+    graph_concept = GraphConcept()
+    current_objective_id = graph_concept.get_objective_for_idea(idea_id)
+
+    if current_objective_id:
+        # Trigger synchronization (removes graph edge and clears idea.objective_id)
+        on_idea_unlinked_from_objective(idea_id, current_objective_id)
+
+        logger.info(
+            "idea_unlinked_from_objective",
+            idea_id=str(idea_id),
+            objective_id=str(current_objective_id),
+        )
+
+    return ObjectiveLinkResponse(
+        idea_id=str(idea_id),
+        objective_id=None,
+        status="unlinked",
+    )
