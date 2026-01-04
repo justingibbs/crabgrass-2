@@ -151,23 +151,19 @@ class VersionConcept:
         self,
         idea_id: UUID,
         file_type: str,
-        commit_id: str
+        change_id: str
     ) -> Optional[str]:
         """
         Get file content at a specific version.
 
-        Note: For MVP, we return current content. Full restore is future work.
-
         Args:
             idea_id: The idea UUID
             file_type: Kernel file type
-            commit_id: The commit ID to retrieve
+            change_id: The JJ change ID to retrieve
 
         Returns:
             File content or None if not found
         """
-        # For MVP, just read current file
-        # TODO: Implement jj cat or jj show for historical content
         idea_id_str = str(idea_id)
         filename = KERNEL_FILE_NAMES.get(file_type)
 
@@ -175,7 +171,7 @@ class VersionConcept:
             return None
 
         file_path = f"kernel/{filename}"
-        return jj_repository.read_file(idea_id_str, file_path)
+        return jj_repository.get_file_at_revision(idea_id_str, file_path, change_id)
 
     def write_initial_files(
         self,

@@ -17,6 +17,7 @@ from ..concepts.session import session_concept
 from ..concepts.objective import Objective
 from ..concepts.objective_file import ObjectiveFileConcept
 from ..concepts.graph import GraphConcept
+from ..concepts.embedding import embedding_concept
 
 logger = structlog.get_logger()
 
@@ -117,7 +118,7 @@ def on_kernel_file_updated(idea_id, file_type, content) -> None:
     sync KernelFileUpdated:
         when KernelFile.update():
             → Version.commit()
-            → Embedding.generate()
+            → Embedding.generate() and store
             → Agent.evaluate() (async, called separately)
     """
     logger.info(
@@ -132,8 +133,27 @@ def on_kernel_file_updated(idea_id, file_type, content) -> None:
     # Commit to JJ repository
     version_concept.commit(idea_id, file_type, content)
 
-    # TODO Slice 10: embedding = Embedding.generate(content)
-    # TODO Slice 10: kernel_file_concept.set_embedding(idea_id, file_type, embedding)
+    # Generate and store embedding
+    # Get the kernel file to get its ID
+    kernel_file = kernel_file_concept.get(idea_id, file_type)
+    if kernel_file:
+        # Check if content has changed (avoid re-embedding same content)
+        if embedding_concept.needs_update(kernel_file.id, content):
+            embedding = embedding_concept.generate(content)
+            content_hash = embedding_concept.content_hash(content)
+            embedding_concept.store(
+                kernel_file_id=kernel_file.id,
+                idea_id=idea_id,
+                file_type=file_type,
+                embedding=embedding,
+                content_hash=content_hash,
+            )
+            logger.info(
+                "embedding_updated",
+                idea_id=str(idea_id),
+                file_type=file_type,
+            )
+
     # Note: Agent evaluation is async and called separately via on_kernel_file_updated_async
 
 

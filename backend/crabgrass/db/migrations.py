@@ -154,6 +154,35 @@ def _run_incremental_migrations(conn, existing_tables: set) -> None:
     # Slice 9: Create DuckPGQ property graph
     _create_property_graph(conn)
 
+    # Slice 10: Add kernel_embeddings table for vector storage
+    if "kernel_embeddings" not in existing_tables:
+        logger.info("adding_kernel_embeddings_table")
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS kernel_embeddings (
+                id UUID PRIMARY KEY,
+                kernel_file_id UUID REFERENCES kernel_files(id),
+                idea_id UUID REFERENCES ideas(id),
+                file_type VARCHAR NOT NULL,
+                embedding FLOAT[768],
+                content_hash VARCHAR,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Create VSS index for similarity search
+        try:
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS kernel_embedding_idx
+                ON kernel_embeddings USING HNSW (embedding)
+                WITH (metric = 'cosine')
+            """)
+            logger.info("vss_index_created", index="kernel_embedding_idx")
+        except Exception as e:
+            logger.warning(
+                "vss_index_creation_failed",
+                error=str(e),
+                note="VSS extension may not be available - vector search will use fallback",
+            )
+
 
 def _create_property_graph(conn) -> None:
     """Create the DuckPGQ property graph for idea-objective relationships."""
@@ -351,6 +380,34 @@ def _create_schema(conn) -> None:
             PRIMARY KEY (idea_id, objective_id)
         )
     """)
+
+    # Kernel embeddings for vector similarity search
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS kernel_embeddings (
+            id UUID PRIMARY KEY,
+            kernel_file_id UUID REFERENCES kernel_files(id),
+            idea_id UUID REFERENCES ideas(id),
+            file_type VARCHAR NOT NULL,
+            embedding FLOAT[768],
+            content_hash VARCHAR,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    # Create VSS index for similarity search
+    try:
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS kernel_embedding_idx
+            ON kernel_embeddings USING HNSW (embedding)
+            WITH (metric = 'cosine')
+        """)
+        logger.info("vss_index_created", index="kernel_embedding_idx")
+    except Exception as e:
+        logger.warning(
+            "vss_index_creation_failed",
+            error=str(e),
+            note="VSS extension may not be available - vector search will use fallback",
+        )
 
     logger.info("schema_created")
 

@@ -8,6 +8,7 @@
 import { Canvas } from '../concepts/canvas.js';
 import { Chat } from '../concepts/chat.js';
 import { apiClient } from '../api/client.js';
+import { VersionHistoryModal } from '../components/version-history-modal.js';
 
 // Mapping of kernel file types to display names
 const KERNEL_FILE_DISPLAY_NAMES = {
@@ -287,6 +288,28 @@ export class FileEditor {
     }
 
     /**
+     * Handle history button click (kernel files only).
+     * @private
+     */
+    _handleHistory() {
+        if (!this.isKernelFile) return;
+
+        new VersionHistoryModal({
+            ideaId: this.ideaId,
+            fileType: this.fileType,
+            onRestore: (restoredContent) => {
+                // Update the canvas with restored content
+                if (this.canvas) {
+                    this.canvas.load(restoredContent);
+                }
+            },
+            onClose: () => {
+                // Modal handles its own cleanup
+            },
+        });
+    }
+
+    /**
      * Handle delete action (context files only).
      * @private
      */
@@ -413,9 +436,11 @@ export class FileEditor {
                         ${readOnlyNote}
                     </div>
                     <div class="file-editor-actions-top">
-                        <button class="btn btn-ghost file-editor-history" disabled title="History (coming soon)">
-                            History
-                        </button>
+                        ${this.isKernelFile ? `
+                            <button class="btn btn-ghost file-editor-history">
+                                History
+                            </button>
+                        ` : ''}
                     </div>
                 </div>
 
@@ -465,6 +490,12 @@ export class FileEditor {
         const deleteButton = this.container.querySelector('.file-editor-delete');
         if (deleteButton) {
             deleteButton.addEventListener('click', () => this._handleDelete());
+        }
+
+        // History button (kernel files only)
+        const historyButton = this.container.querySelector('.file-editor-history');
+        if (historyButton) {
+            historyButton.addEventListener('click', () => this._handleHistory());
         }
 
         // Keyboard shortcuts

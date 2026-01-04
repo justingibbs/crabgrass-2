@@ -105,6 +105,7 @@ class ChatRequest(BaseModel):
 
     message: str
     session_id: Optional[str] = None
+    create_new: bool = False  # Force creation of a new session (note: objective chat always creates new if no session_id)
 
 
 class ChatResponse(BaseModel):

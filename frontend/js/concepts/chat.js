@@ -48,12 +48,14 @@ export class Chat {
         // State
         this.messages = [];
         this.sessionId = null;
+        this.sessions = []; // List of available sessions
         this.isLoading = false;
         this.error = null;
         this.agentName = AGENT_NAMES[this.agentType || this.fileType] || 'Agent';
+        this._pendingNewSession = false; // Track if next message should create new session
 
         this.render();
-        this._loadExistingSession();
+        this._loadSessions();
     }
 
     /**
@@ -63,16 +65,17 @@ export class Chat {
         return {
             messages: this.messages,
             sessionId: this.sessionId,
+            sessions: this.sessions,
             isLoading: this.isLoading,
             error: this.error,
         };
     }
 
     /**
-     * Load an existing session if one exists.
+     * Load available sessions and the most recent one.
      * @private
      */
-    async _loadExistingSession() {
+    async _loadSessions() {
         try {
             let response;
             if (this.isObjectiveChat) {
@@ -82,17 +85,60 @@ export class Chat {
             } else if (this.isContextChat) {
                 // Context files don't have a sessions list endpoint yet
                 // Start fresh each time - sessions will be created on first message
+                this.sessions = [];
                 return;
             } else {
                 response = await apiClient.getSessions(this.ideaId, this.fileType);
             }
+
             if (response.sessions && response.sessions.length > 0) {
+                this.sessions = response.sessions;
                 // Load the most recent session
-                const latestSession = response.sessions[0];
-                await this.loadSession(latestSession.id);
+                await this.loadSession(response.sessions[0].id);
+            } else {
+                this.sessions = [];
+            }
+            this.render();
+        } catch (error) {
+            console.log('No sessions found, starting fresh');
+            this.sessions = [];
+        }
+    }
+
+    /**
+     * Start a new session (clears current chat).
+     */
+    startNewSession() {
+        this.sessionId = null;
+        this.messages = [];
+        this.error = null;
+        this._pendingNewSession = true; // Force new session on next message
+        this.render();
+    }
+
+    /**
+     * Refresh the sessions list without changing current session.
+     * @private
+     */
+    async _refreshSessionsList() {
+        try {
+            let response;
+            if (this.isObjectiveChat) {
+                response = await apiClient.getObjectiveSessions(this.objectiveId);
+            } else if (this.isCoherenceChat) {
+                response = await apiClient.getCoherenceSessions(this.ideaId);
+            } else if (this.isContextChat) {
+                return; // Context files don't have sessions list
+            } else {
+                response = await apiClient.getSessions(this.ideaId, this.fileType);
+            }
+
+            if (response.sessions) {
+                this.sessions = response.sessions;
+                this.render();
             }
         } catch (error) {
-            console.log('No existing session found, starting fresh');
+            console.log('Failed to refresh sessions list:', error);
         }
     }
 
@@ -135,36 +181,45 @@ export class Chat {
         this.render();
 
         try {
+            // Check if we need to force a new session
+            const createNew = this._pendingNewSession;
+            this._pendingNewSession = false; // Reset the flag
+
             let response;
             if (this.isObjectiveChat) {
                 response = await apiClient.sendObjectiveChatMessage(
                     this.objectiveId,
                     message,
-                    this.sessionId
+                    this.sessionId,
+                    createNew
                 );
             } else if (this.isCoherenceChat) {
                 response = await apiClient.sendCoherenceChatMessage(
                     this.ideaId,
                     message,
-                    this.sessionId
+                    this.sessionId,
+                    createNew
                 );
             } else if (this.isContextChat) {
                 response = await apiClient.sendContextChatMessage(
                     this.ideaId,
                     this.contextFileId,
                     message,
-                    this.sessionId
+                    this.sessionId,
+                    createNew
                 );
             } else {
                 response = await apiClient.sendChatMessage(
                     this.ideaId,
                     this.fileType,
                     message,
-                    this.sessionId
+                    this.sessionId,
+                    createNew
                 );
             }
 
             // Store session ID for future messages
+            const wasNewSession = createNew;
             this.sessionId = response.session_id;
 
             // Add agent response
@@ -182,11 +237,56 @@ export class Chat {
             this.isLoading = false;
             this.render();
 
+            // Refresh sessions list if we created a new session
+            if (wasNewSession) {
+                this._refreshSessionsList();
+            }
+
         } catch (error) {
             console.error('Chat error:', error);
             this.error = error.message;
             this.isLoading = false;
             this.render();
+        }
+    }
+
+    /**
+     * Render the sessions dropdown.
+     * @private
+     */
+    _renderSessionsDropdown() {
+        if (this.isContextChat) {
+            // Context chats don't support session switching
+            return '';
+        }
+
+        const sessionOptions = this.sessions.map(session => {
+            const isSelected = session.id === this.sessionId;
+            const title = session.title || this._formatSessionDate(session.created_at);
+            return `<option value="${session.id}" ${isSelected ? 'selected' : ''}>${title}</option>`;
+        }).join('');
+
+        return `
+            <div class="chat-sessions-dropdown">
+                <select class="chat-session-select">
+                    <option value="new">+ New Session</option>
+                    ${sessionOptions}
+                </select>
+            </div>
+        `;
+    }
+
+    /**
+     * Format a session date for display.
+     * @private
+     */
+    _formatSessionDate(dateStr) {
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+                   ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch {
+            return 'Session';
         }
     }
 
@@ -198,6 +298,7 @@ export class Chat {
             <div class="chat">
                 <div class="chat-header">
                     <span class="chat-agent-name">${this.agentName}</span>
+                    ${this._renderSessionsDropdown()}
                 </div>
                 <div class="chat-messages">
                     ${this._renderMessages()}
@@ -344,6 +445,19 @@ export class Chat {
                     e.preventDefault();
                     this.send(input.value);
                     input.value = '';
+                }
+            });
+        }
+
+        // Session dropdown
+        const sessionSelect = this.container.querySelector('.chat-session-select');
+        if (sessionSelect) {
+            sessionSelect.addEventListener('change', async (e) => {
+                const value = e.target.value;
+                if (value === 'new') {
+                    this.startNewSession();
+                } else {
+                    await this.loadSession(value);
                 }
             });
         }

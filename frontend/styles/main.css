@@ -158,6 +158,32 @@ body {
     letter-spacing: 0.05em;
 }
 
+/* Search */
+.search-container {
+    display: flex;
+    align-items: center;
+}
+
+.search-input {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border: 1px solid var(--border-color);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-width: 200px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px var(--color-primary-light);
+}
+
+.search-input::placeholder {
+    color: var(--text-muted);
+}
+
 /* Buttons */
 .button {
     display: inline-flex;

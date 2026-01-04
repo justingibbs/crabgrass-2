@@ -68,6 +68,7 @@ class ChatRequest(BaseModel):
 
     message: str
     session_id: Optional[str] = None
+    create_new: bool = False  # Force creation of a new session
 
 
 class ChatResponse(BaseModel):
@@ -159,6 +160,14 @@ async def chat_with_agent(
             session = session_concept.get(UUID(request.session_id))
             if not session:
                 raise HTTPException(status_code=404, detail="Session not found")
+        elif request.create_new:
+            # Force creation of a new session
+            session = session_concept.create(
+                idea_id=idea_id,
+                user_id=user_id,
+                agent_type=agent.AGENT_TYPE,
+                file_type=file_type,
+            )
         else:
             session = session_concept.get_or_create(
                 idea_id=idea_id,

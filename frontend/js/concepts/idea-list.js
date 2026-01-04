@@ -14,6 +14,21 @@ export class IdeaList {
         this.loading = true;
         this.error = null;
         this.objectiveList = null;
+        this.searchQuery = '';
+        this._searchDebounceTimer = null;
+    }
+
+    /**
+     * Get filtered ideas based on search query.
+     */
+    getFilteredIdeas() {
+        if (!this.searchQuery.trim()) {
+            return this.ideas;
+        }
+        const query = this.searchQuery.toLowerCase().trim();
+        return this.ideas.filter(idea =>
+            idea.title.toLowerCase().includes(query)
+        );
     }
 
     /**
@@ -71,14 +86,31 @@ export class IdeaList {
             return;
         }
 
+        const filteredIdeas = this.getFilteredIdeas();
+        const hasSearchQuery = this.searchQuery.trim().length > 0;
+
         this.container.innerHTML = `
             <div class="page">
                 <div class="section-header">
                     <span class="section-title">Contributing To</span>
+                    <div class="search-container">
+                        <input
+                            type="text"
+                            class="search-input"
+                            placeholder="Search ideas..."
+                            value="${this.escapeHtml(this.searchQuery)}"
+                        />
+                    </div>
                 </div>
                 <div class="card-grid" id="ideas-grid">
-                    ${this.renderNewIdeaCard()}
-                    ${this.ideas.map(idea => this.renderIdeaCard(idea)).join('')}
+                    ${!hasSearchQuery ? this.renderNewIdeaCard() : ''}
+                    ${filteredIdeas.length > 0
+                        ? filteredIdeas.map(idea => this.renderIdeaCard(idea)).join('')
+                        : (hasSearchQuery
+                            ? '<div class="empty-state"><p>No ideas match your search.</p></div>'
+                            : '<div class="empty-state"><p>No ideas yet. Create your first idea!</p></div>'
+                          )
+                    }
                 </div>
 
                 <div class="section-header" style="margin-top: var(--spacing-xl);">
@@ -190,9 +222,40 @@ export class IdeaList {
     }
 
     /**
+     * Handle search input with debouncing.
+     * @param {string} value - Search query
+     */
+    handleSearch(value) {
+        this.searchQuery = value;
+
+        // Debounce the re-render to avoid excessive updates
+        if (this._searchDebounceTimer) {
+            clearTimeout(this._searchDebounceTimer);
+        }
+
+        this._searchDebounceTimer = setTimeout(() => {
+            this.render();
+            // Restore focus to search input
+            const searchInput = this.container.querySelector('.search-input');
+            if (searchInput) {
+                searchInput.focus();
+                searchInput.setSelectionRange(value.length, value.length);
+            }
+        }, 150);
+    }
+
+    /**
      * Attach event listeners.
      */
     attachEventListeners() {
+        // Search input
+        const searchInput = this.container.querySelector('.search-input');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.handleSearch(e.target.value);
+            });
+        }
+
         // New idea card
         const newIdeaCard = document.getElementById('new-idea-card');
         if (newIdeaCard) {

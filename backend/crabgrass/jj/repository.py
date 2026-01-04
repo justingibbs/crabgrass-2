@@ -331,6 +331,49 @@ class JJRepository:
         repo_path = self._get_repo_path(idea_id)
         return (repo_path / ".jj").exists()
 
+    def get_file_at_revision(
+        self,
+        idea_id: str,
+        file_path: str,
+        change_id: str,
+    ) -> Optional[str]:
+        """
+        Get file content at a specific revision.
+
+        Args:
+            idea_id: The idea ID
+            file_path: Relative path within the repo (e.g., "kernel/Challenge.md")
+            change_id: The JJ change ID to retrieve from
+
+        Returns:
+            File content at that revision, or None if not found
+        """
+        repo_path = self._get_repo_path(idea_id)
+
+        # Check if repo exists
+        if not (repo_path / ".jj").exists():
+            return None
+
+        # Use jj file show to get content at revision
+        # Format: jj file show -r <revision> <path>
+        result = self._run_jj(
+            idea_id,
+            ["file", "show", "-r", change_id, file_path],
+            check=False,
+        )
+
+        if result.returncode != 0:
+            logger.warning(
+                "jj_file_show_failed",
+                idea_id=idea_id,
+                file_path=file_path,
+                change_id=change_id,
+                stderr=result.stderr,
+            )
+            return None
+
+        return result.stdout
+
 
 # Singleton instance
 jj_repository = JJRepository()

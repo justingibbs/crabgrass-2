@@ -472,6 +472,89 @@ async def get_kernel_file_history(
     )
 
 
+class RestoreVersionResponse(BaseModel):
+    """Response after restoring a kernel file version."""
+
+    id: str
+    idea_id: str
+    file_type: str
+    content: str
+    is_complete: bool
+    updated_at: str
+    restored_from: str
+
+
+@router.post(
+    "/{idea_id}/kernel/{file_type}/restore/{change_id}",
+    response_model=RestoreVersionResponse,
+)
+async def restore_kernel_file_version(
+    idea_id: UUID,
+    file_type: str,
+    change_id: str,
+    crabgrass_dev_user: Optional[str] = Cookie(default=None),
+):
+    """Restore a kernel file to a previous version."""
+    user_id, org_id = get_current_user_info(crabgrass_dev_user)
+
+    # Verify idea exists and user has access
+    idea = idea_concept.get(idea_id)
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+
+    if idea.org_id != org_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Validate file type
+    valid_types = ["summary", "challenge", "approach", "coherent_steps"]
+    if file_type not in valid_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Must be one of: {', '.join(valid_types)}",
+        )
+
+    # Get content at the specified version
+    content = version_concept.get_file_content_at_version(idea_id, file_type, change_id)
+    if content is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Version {change_id} not found for this file",
+        )
+
+    # Update the kernel file with restored content
+    kernel_file = kernel_file_concept.update(idea_id, file_type, content, user_id)
+
+    if not kernel_file:
+        raise HTTPException(status_code=404, detail="Kernel file not found")
+
+    # Trigger synchronization (commits to JJ, generates embedding)
+    on_kernel_file_updated(idea_id, file_type, content)
+
+    # Trigger async agent evaluation
+    await on_kernel_file_updated_async(idea_id, file_type, content)
+
+    # Reload kernel file to get updated is_complete status
+    kernel_file = kernel_file_concept.get(idea_id, file_type)
+
+    logger.info(
+        "kernel_file_restored",
+        idea_id=str(idea_id),
+        file_type=file_type,
+        change_id=change_id,
+        user_id=str(user_id),
+    )
+
+    return RestoreVersionResponse(
+        id=str(kernel_file.id),
+        idea_id=str(kernel_file.idea_id),
+        file_type=kernel_file.file_type,
+        content=kernel_file.content,
+        is_complete=kernel_file.is_complete,
+        updated_at=kernel_file.updated_at.isoformat(),
+        restored_from=change_id,
+    )
+
+
 # --- Objective Linking Routes ---
 
 

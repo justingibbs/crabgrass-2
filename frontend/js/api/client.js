@@ -163,6 +163,18 @@ export const apiClient = {
         return request(`/api/ideas/${ideaId}/kernel/${fileType}/history?limit=${limit}`);
     },
 
+    /**
+     * Restore a kernel file to a previous version.
+     * @param {string} ideaId - Idea ID
+     * @param {string} fileType - File type
+     * @param {string} changeId - The JJ change ID to restore from
+     */
+    async restoreKernelFileVersion(ideaId, fileType, changeId) {
+        return request(`/api/ideas/${ideaId}/kernel/${fileType}/restore/${changeId}`, {
+            method: 'POST',
+        });
+    },
+
     // --- Agent Chat ---
 
     /**
@@ -171,11 +183,15 @@ export const apiClient = {
      * @param {string} fileType - File type (determines which agent)
      * @param {string} message - The message to send
      * @param {string} [sessionId] - Optional session ID to continue conversation
+     * @param {boolean} [createNew] - Force creation of a new session
      */
-    async sendChatMessage(ideaId, fileType, message, sessionId = null) {
+    async sendChatMessage(ideaId, fileType, message, sessionId = null, createNew = false) {
         const body = { message };
         if (sessionId) {
             body.session_id = sessionId;
+        }
+        if (createNew) {
+            body.create_new = true;
         }
         return request(`/api/ideas/${ideaId}/kernel/${fileType}/chat`, {
             method: 'POST',
@@ -208,11 +224,15 @@ export const apiClient = {
      * @param {string} ideaId - Idea ID
      * @param {string} message - The message to send
      * @param {string} [sessionId] - Optional session ID to continue conversation
+     * @param {boolean} [createNew] - Force creation of a new session
      */
-    async sendCoherenceChatMessage(ideaId, message, sessionId = null) {
+    async sendCoherenceChatMessage(ideaId, message, sessionId = null, createNew = false) {
         const body = { message };
         if (sessionId) {
             body.session_id = sessionId;
+        }
+        if (createNew) {
+            body.create_new = true;
         }
         return request(`/api/ideas/${ideaId}/coherence/chat`, {
             method: 'POST',
@@ -300,11 +320,15 @@ export const apiClient = {
      * @param {string} fileId - Context file ID
      * @param {string} message - The message to send
      * @param {string} [sessionId] - Optional session ID to continue conversation
+     * @param {boolean} [createNew] - Force creation of a new session
      */
-    async sendContextChatMessage(ideaId, fileId, message, sessionId = null) {
+    async sendContextChatMessage(ideaId, fileId, message, sessionId = null, createNew = false) {
         const body = { message };
         if (sessionId) {
             body.session_id = sessionId;
+        }
+        if (createNew) {
+            body.create_new = true;
         }
         return request(`/api/ideas/${ideaId}/context/${fileId}/chat`, {
             method: 'POST',
@@ -427,11 +451,15 @@ export const apiClient = {
      * @param {string} objectiveId - Objective ID
      * @param {string} message - The message to send
      * @param {string} [sessionId] - Optional session ID to continue conversation
+     * @param {boolean} [createNew] - Force creation of a new session
      */
-    async sendObjectiveChatMessage(objectiveId, message, sessionId = null) {
+    async sendObjectiveChatMessage(objectiveId, message, sessionId = null, createNew = false) {
         const body = { message };
         if (sessionId) {
             body.session_id = sessionId;
+        }
+        if (createNew) {
+            body.create_new = true;
         }
         return request(`/api/objectives/${objectiveId}/chat`, {
             method: 'POST',
