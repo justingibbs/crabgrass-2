@@ -1,14 +1,16 @@
 /**
  * Canvas Concept
  *
- * Manages the markdown editor state and rendering.
- * Supports toggle mode between Edit and Preview.
+ * Manages the WYSIWYG markdown editor state and rendering.
+ * Uses Quill for rich text editing with Markdown ↔ HTML conversion.
  */
 
-import { renderMarkdown } from '../lib/markdown.js';
+import { createEditor } from '../lib/editor.js';
+import { parseMarkdown, serializeAst } from '../lib/markdown-ast.js';
+import { CanvasToolbar } from '../components/canvas-toolbar.js';
 
 /**
- * Canvas - markdown editor with edit/preview toggle
+ * Canvas - WYSIWYG markdown editor
  */
 export class Canvas {
     /**
@@ -27,10 +29,19 @@ export class Canvas {
         // State
         this.originalContent = options.initialContent || '';
         this.content = this.originalContent;
-        this.mode = 'edit'; // 'edit' or 'preview'
+        this.ast = null;
         this.isDirty = false;
+        this.isInitialized = false;
+
+        // Editor instances
+        this.editor = null;
+        this.toolbar = null;
+
+        // Parse initial AST
+        this.ast = parseMarkdown(this.originalContent);
 
         this.render();
+        this._initEditor();
     }
 
     /**
@@ -40,8 +51,9 @@ export class Canvas {
         return {
             content: this.content,
             originalContent: this.originalContent,
-            mode: this.mode,
+            ast: this.ast,
             isDirty: this.isDirty,
+            isInitialized: this.isInitialized,
         };
     }
 
@@ -52,8 +64,14 @@ export class Canvas {
     load(content) {
         this.originalContent = content;
         this.content = content;
+        this.ast = parseMarkdown(content);
         this.isDirty = false;
-        this.render();
+
+        if (this.editor) {
+            this.editor.setContent(content);
+        }
+
+        this._updateDirtyIndicator();
     }
 
     /**
@@ -62,6 +80,7 @@ export class Canvas {
      */
     updateContent(newContent) {
         this.content = newContent;
+        this.ast = parseMarkdown(newContent);
         this.isDirty = this.content !== this.originalContent;
 
         // Notify change listener
@@ -69,26 +88,7 @@ export class Canvas {
             this.options.onChange(this.content, this.isDirty);
         }
 
-        // Update dirty indicator without full re-render
         this._updateDirtyIndicator();
-    }
-
-    /**
-     * Switch between edit and preview modes.
-     * @param {string} mode - 'edit' or 'preview'
-     */
-    setMode(mode) {
-        if (mode !== this.mode) {
-            this.mode = mode;
-            this.render();
-        }
-    }
-
-    /**
-     * Toggle between edit and preview modes.
-     */
-    toggleMode() {
-        this.setMode(this.mode === 'edit' ? 'preview' : 'edit');
     }
 
     /**
@@ -96,6 +96,11 @@ export class Canvas {
      * Emits canvas:save event and calls onSave callback.
      */
     save() {
+        // Get the latest content from the editor
+        if (this.editor) {
+            this.content = this.editor.getContent();
+        }
+
         // Emit event for synchronization
         this.container.dispatchEvent(
             new CustomEvent('canvas:save', {
@@ -116,7 +121,12 @@ export class Canvas {
     cancel() {
         // If dirty, could show confirmation here
         this.content = this.originalContent;
+        this.ast = parseMarkdown(this.originalContent);
         this.isDirty = false;
+
+        if (this.editor) {
+            this.editor.setContent(this.originalContent);
+        }
 
         // Emit event
         this.container.dispatchEvent(
@@ -141,97 +151,142 @@ export class Canvas {
     }
 
     /**
-     * Render the canvas.
+     * Focus the editor.
+     */
+    focus() {
+        if (this.editor) {
+            this.editor.focus();
+        }
+    }
+
+    /**
+     * Render the canvas structure.
      */
     render() {
         this.container.innerHTML = `
             <div class="canvas">
-                <div class="canvas-tabs">
-                    <button class="canvas-tab ${this.mode === 'edit' ? 'active' : ''}" data-mode="edit">
-                        Edit
-                    </button>
-                    <button class="canvas-tab ${this.mode === 'preview' ? 'active' : ''}" data-mode="preview">
-                        Preview
-                    </button>
-                    <span class="canvas-dirty-indicator ${this.isDirty ? 'visible' : ''}" title="Unsaved changes">
-                        ●
-                    </span>
+                <div class="canvas-toolbar-container">
+                    <!-- Toolbar will be mounted here -->
                 </div>
                 <div class="canvas-content">
-                    ${this.mode === 'edit' ? this._renderEditor() : this._renderPreview()}
+                    <div class="canvas-editor-container">
+                        <!-- Editor will be mounted here -->
+                    </div>
                 </div>
             </div>
         `;
-
-        this._attachEventListeners();
     }
 
     /**
-     * Render the editor (edit mode).
+     * Initialize the Milkdown editor.
      * @private
      */
-    _renderEditor() {
-        return `
+    async _initEditor() {
+        const editorContainer = this.container.querySelector('.canvas-editor-container');
+        const toolbarContainer = this.container.querySelector('.canvas-toolbar-container');
+
+        if (!editorContainer || !toolbarContainer) {
+            console.error('Canvas: Could not find editor or toolbar container');
+            return;
+        }
+
+        try {
+            // Create the toolbar first (without editor)
+            this.toolbar = new CanvasToolbar(toolbarContainer);
+
+            // Add dirty indicator to toolbar
+            const toolbarEl = toolbarContainer.querySelector('.canvas-toolbar');
+            if (toolbarEl) {
+                const indicator = document.createElement('span');
+                indicator.className = 'canvas-dirty-indicator';
+                indicator.title = 'Unsaved changes';
+                indicator.textContent = '\u25CF'; // Bullet character
+                toolbarEl.appendChild(indicator);
+            }
+
+            // Create the editor
+            this.editor = await createEditor({
+                container: editorContainer,
+                initialContent: this.originalContent,
+                onChange: (markdown) => {
+                    this.updateContent(markdown);
+                },
+                onFocus: () => {
+                    this.container.querySelector('.canvas')?.classList.add('focused');
+                },
+                onBlur: () => {
+                    this.container.querySelector('.canvas')?.classList.remove('focused');
+                },
+            });
+
+            // Connect toolbar to editor
+            this.toolbar.setEditor(this.editor);
+
+            // Set up keyboard shortcut for save (Cmd+S)
+            this._setupSaveShortcut();
+
+            this.isInitialized = true;
+
+            // Focus the editor
+            this.editor.focus();
+        } catch (error) {
+            console.error('Canvas: Failed to initialize editor:', error);
+            // Fall back to textarea mode
+            this._renderFallbackEditor(editorContainer);
+        }
+    }
+
+    /**
+     * Set up Cmd+S keyboard shortcut for save.
+     * @private
+     */
+    _setupSaveShortcut() {
+        this._keydownHandler = (e) => {
+            // Cmd/Ctrl + S to save
+            if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+                e.preventDefault();
+                this.save();
+            }
+        };
+
+        this.container.addEventListener('keydown', this._keydownHandler);
+    }
+
+    /**
+     * Render a fallback textarea editor (if Milkdown fails to load).
+     * @private
+     * @param {HTMLElement} container
+     */
+    _renderFallbackEditor(container) {
+        container.innerHTML = `
             <textarea
-                class="canvas-editor"
+                class="canvas-fallback-editor"
                 placeholder="Start writing..."
                 spellcheck="true"
             >${this._escapeHtml(this.content)}</textarea>
         `;
-    }
 
-    /**
-     * Render the preview (preview mode).
-     * @private
-     */
-    _renderPreview() {
-        const html = renderMarkdown(this.content);
-        return `
-            <div class="canvas-preview markdown-body">
-                ${html || '<p class="canvas-empty">Nothing to preview</p>'}
-            </div>
-        `;
-    }
-
-    /**
-     * Attach event listeners.
-     * @private
-     */
-    _attachEventListeners() {
-        // Tab buttons
-        const tabs = this.container.querySelectorAll('.canvas-tab');
-        tabs.forEach((tab) => {
-            tab.addEventListener('click', (e) => {
-                const mode = e.target.dataset.mode;
-                if (mode) {
-                    this.setMode(mode);
-                }
-            });
-        });
-
-        // Textarea input
-        const textarea = this.container.querySelector('.canvas-editor');
+        const textarea = container.querySelector('textarea');
         if (textarea) {
             textarea.addEventListener('input', (e) => {
                 this.updateContent(e.target.value);
             });
 
-            // Auto-focus in edit mode
-            textarea.focus();
-
-            // Handle keyboard shortcuts
             textarea.addEventListener('keydown', (e) => {
-                // Cmd/Ctrl + S to save
                 if ((e.metaKey || e.ctrlKey) && e.key === 's') {
                     e.preventDefault();
                     this.save();
                 }
             });
+
+            textarea.focus();
         }
+
+        this.isInitialized = true;
     }
 
     /**
-     * Update dirty indicator without full re-render.
+     * Update dirty indicator visibility.
      * @private
      */
     _updateDirtyIndicator() {
@@ -255,5 +310,22 @@ export class Canvas {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    }
+
+    /**
+     * Clean up the canvas and editor.
+     */
+    destroy() {
+        if (this._keydownHandler) {
+            this.container.removeEventListener('keydown', this._keydownHandler);
+        }
+
+        if (this.toolbar) {
+            this.toolbar.destroy();
+        }
+
+        if (this.editor) {
+            this.editor.destroy();
+        }
     }
 }

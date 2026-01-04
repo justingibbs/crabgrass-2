@@ -1,0 +1,475 @@
+/**
+ * Canvas (WYSIWYG Editor) Styles
+ *
+ * Styles for the Quill WYSIWYG editor, toolbar, and related components.
+ */
+
+/* Canvas Container */
+.canvas {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--bg-primary);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
+
+/* Toolbar */
+.canvas-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.toolbar-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    height: 32px;
+    padding: 0 var(--spacing-sm);
+    border: 1px solid transparent;
+    border-radius: var(--border-radius-sm);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.toolbar-button:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.toolbar-button:active {
+    background: var(--bg-tertiary);
+}
+
+.toolbar-button.active {
+    background: var(--color-primary);
+    color: white;
+    border-color: var(--color-primary);
+}
+
+.toolbar-button.italic {
+    font-style: italic;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 20px;
+    background: var(--border-color);
+    margin: 0 var(--spacing-xs);
+}
+
+/* Dirty Indicator */
+.canvas-dirty-indicator {
+    margin-left: auto;
+    color: var(--color-warning);
+    font-size: var(--font-size-sm);
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.canvas-dirty-indicator.visible {
+    opacity: 1;
+}
+
+/* Editor Content Area */
+.canvas-content {
+    flex: 1;
+    overflow: auto;
+    padding: var(--spacing-md);
+}
+
+/* Milkdown/ProseMirror Editor */
+.canvas-content .milkdown {
+    height: 100%;
+}
+
+.canvas-content .ProseMirror {
+    min-height: 100%;
+    outline: none;
+    font-size: var(--font-size-base);
+    line-height: 1.7;
+}
+
+.canvas-content .ProseMirror:focus {
+    outline: none;
+}
+
+/* Placeholder */
+.canvas-content .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    color: var(--text-muted);
+    pointer-events: none;
+    float: left;
+    height: 0;
+}
+
+/* Typography in Editor */
+.canvas-content .ProseMirror h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 1.5rem 0 1rem;
+    line-height: 1.2;
+}
+
+.canvas-content .ProseMirror h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.75rem;
+    line-height: 1.3;
+}
+
+.canvas-content .ProseMirror h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 1rem 0 0.5rem;
+    line-height: 1.4;
+}
+
+.canvas-content .ProseMirror h1:first-child,
+.canvas-content .ProseMirror h2:first-child,
+.canvas-content .ProseMirror h3:first-child {
+    margin-top: 0;
+}
+
+.canvas-content .ProseMirror p {
+    margin: 0 0 1rem;
+}
+
+.canvas-content .ProseMirror p:last-child {
+    margin-bottom: 0;
+}
+
+/* Lists */
+.canvas-content .ProseMirror ul,
+.canvas-content .ProseMirror ol {
+    margin: 0 0 1rem;
+    padding-left: 1.5rem;
+}
+
+.canvas-content .ProseMirror li {
+    margin: 0.25rem 0;
+}
+
+.canvas-content .ProseMirror li > p {
+    margin: 0;
+}
+
+/* Blockquote */
+.canvas-content .ProseMirror blockquote {
+    margin: 1rem 0;
+    padding: 0.5rem 1rem;
+    border-left: 4px solid var(--color-primary);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+.canvas-content .ProseMirror blockquote p {
+    margin: 0;
+}
+
+/* Code */
+.canvas-content .ProseMirror code {
+    font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9em;
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.3rem;
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+}
+
+.canvas-content .ProseMirror pre {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--border-radius);
+    overflow-x: auto;
+}
+
+.canvas-content .ProseMirror pre code {
+    background: none;
+    padding: 0;
+}
+
+/* Links */
+.canvas-content .ProseMirror a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.canvas-content .ProseMirror a:hover {
+    text-decoration: underline;
+}
+
+/* Strong and Emphasis */
+.canvas-content .ProseMirror strong {
+    font-weight: 600;
+}
+
+.canvas-content .ProseMirror em {
+    font-style: italic;
+}
+
+/* Horizontal Rule */
+.canvas-content .ProseMirror hr {
+    margin: 1.5rem 0;
+    border: none;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Tables (GFM) */
+.canvas-content .ProseMirror table {
+    border-collapse: collapse;
+    margin: 1rem 0;
+    width: 100%;
+}
+
+.canvas-content .ProseMirror th,
+.canvas-content .ProseMirror td {
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 0.75rem;
+    text-align: left;
+}
+
+.canvas-content .ProseMirror th {
+    background: var(--bg-secondary);
+    font-weight: 600;
+}
+
+/* Task Lists (GFM) */
+.canvas-content .ProseMirror ul[data-type="taskList"] {
+    list-style: none;
+    padding-left: 0;
+}
+
+.canvas-content .ProseMirror ul[data-type="taskList"] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.canvas-content .ProseMirror ul[data-type="taskList"] input[type="checkbox"] {
+    margin-top: 0.25rem;
+}
+
+/* Strikethrough (GFM) */
+.canvas-content .ProseMirror s,
+.canvas-content .ProseMirror del {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}
+
+/* Selection */
+.canvas-content .ProseMirror ::selection {
+    background: rgba(37, 99, 235, 0.2);
+}
+
+/* Images */
+.canvas-content .ProseMirror img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius);
+}
+
+/* Editor Focus Ring (for accessibility) */
+.canvas.focused .canvas-content {
+    box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+/* Toolbar Container */
+.canvas-toolbar-container {
+    flex-shrink: 0;
+}
+
+/* Editor Container */
+.canvas-editor-container {
+    height: 100%;
+}
+
+/* Fallback Textarea Editor (when Milkdown fails to load) */
+.canvas-fallback-editor {
+    width: 100%;
+    height: 100%;
+    min-height: 300px;
+    padding: var(--spacing-md);
+    border: none;
+    outline: none;
+    resize: none;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+    line-height: 1.7;
+    color: var(--text-primary);
+    background: transparent;
+}
+
+.canvas-fallback-editor::placeholder {
+    color: var(--text-muted);
+}
+
+.canvas-fallback-editor:focus {
+    outline: none;
+}
+
+/* ============================================
+   Quill Editor Styles
+   ============================================ */
+
+/* Quill container */
+.canvas-editor-container .quill-editor {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Hide Quill's default toolbar (we use our own) */
+.canvas-editor-container .ql-toolbar {
+    display: none;
+}
+
+/* Quill editor area */
+.canvas-editor-container .ql-container {
+    flex: 1;
+    border: none !important;
+    font-family: var(--font-family);
+    font-size: var(--font-size-base);
+}
+
+.canvas-editor-container .ql-editor {
+    min-height: 100%;
+    padding: 0;
+    line-height: 1.7;
+    color: var(--text-primary);
+}
+
+.canvas-editor-container .ql-editor:focus {
+    outline: none;
+}
+
+/* Quill placeholder */
+.canvas-editor-container .ql-editor.ql-blank::before {
+    color: var(--text-muted);
+    font-style: normal;
+    left: 0;
+    right: 0;
+}
+
+/* Quill Typography */
+.canvas-editor-container .ql-editor h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin: 1.5rem 0 1rem;
+    line-height: 1.2;
+}
+
+.canvas-editor-container .ql-editor h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 1.25rem 0 0.75rem;
+    line-height: 1.3;
+}
+
+.canvas-editor-container .ql-editor h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 1rem 0 0.5rem;
+    line-height: 1.4;
+}
+
+.canvas-editor-container .ql-editor h1:first-child,
+.canvas-editor-container .ql-editor h2:first-child,
+.canvas-editor-container .ql-editor h3:first-child {
+    margin-top: 0;
+}
+
+.canvas-editor-container .ql-editor p {
+    margin: 0 0 1rem;
+}
+
+.canvas-editor-container .ql-editor p:last-child {
+    margin-bottom: 0;
+}
+
+/* Quill Lists */
+.canvas-editor-container .ql-editor ul,
+.canvas-editor-container .ql-editor ol {
+    margin: 0 0 1rem;
+    padding-left: 1.5rem;
+}
+
+.canvas-editor-container .ql-editor li {
+    margin: 0.25rem 0;
+}
+
+/* Quill Blockquote */
+.canvas-editor-container .ql-editor blockquote {
+    margin: 1rem 0;
+    padding: 0.5rem 1rem;
+    border-left: 4px solid var(--color-primary);
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+}
+
+/* Quill Code */
+.canvas-editor-container .ql-editor code {
+    font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9em;
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.3rem;
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+}
+
+.canvas-editor-container .ql-editor pre {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: var(--border-radius);
+    overflow-x: auto;
+    font-family: "SF Mono", Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.9em;
+    color: var(--text-primary);
+}
+
+.canvas-editor-container .ql-editor pre.ql-syntax {
+    background: var(--bg-tertiary);
+}
+
+/* Quill Links */
+.canvas-editor-container .ql-editor a {
+    color: var(--color-primary);
+    text-decoration: none;
+}
+
+.canvas-editor-container .ql-editor a:hover {
+    text-decoration: underline;
+}
+
+/* Quill Strong and Emphasis */
+.canvas-editor-container .ql-editor strong {
+    font-weight: 600;
+}
+
+.canvas-editor-container .ql-editor em {
+    font-style: italic;
+}
+
+/* Quill Selection */
+.canvas-editor-container .ql-editor ::selection {
+    background: rgba(37, 99, 235, 0.2);
+}
+
+/* Quill Images */
+.canvas-editor-container .ql-editor img {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--border-radius);
+}

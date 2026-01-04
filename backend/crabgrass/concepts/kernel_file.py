@@ -119,6 +119,16 @@ class KernelFileConcept:
         content_hash = self._hash_content(content)
 
         with get_db() as db:
+            # DuckDB quirk: FK constraints can block UPDATEs even when PK isn't changing.
+            # Delete embeddings first, then update. Embeddings will be regenerated on next access.
+            db.execute(
+                """
+                DELETE FROM kernel_embeddings
+                WHERE idea_id = ? AND file_type = ?
+                """,
+                [str(idea_id), file_type],
+            )
+
             db.execute(
                 """
                 UPDATE kernel_files
